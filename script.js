@@ -15,16 +15,13 @@ const state = {
   manufacturers: [],
   filterPark: "",
   filterMfg: "",
-  filterCountry: "", // New
+  filterCountry: "",
   sortBy: "rank",
-  isDeleteMode: false,
-  sortBy: "rank",
-  isDeleteMode: false,
-  selectedItems: new Set(),
   isDeleteMode: false,
   selectedItems: new Set(),
   editingPark: null,
-  editingCoaster: null, // New
+  editingCoaster: null,
+  isMiniView: false, // New: Toggle for compact view
 };
 
 let cropper; // Global cropper instance
@@ -244,6 +241,8 @@ function renderCoasterList() {
   document.getElementById("filter-mfg").innerHTML =
     '<option value="">Todas las Manufacturadoras</option>' +
     state.manufacturers
+      .slice()
+      .sort((a, b) => (mfgCounts[b.name] || 0) - (mfgCounts[a.name] || 0))
       .map(
         (m) =>
           `<option value="${m.name}">${m.name} (${mfgCounts[m.name] || 0})</option>`,
@@ -283,7 +282,8 @@ function renderCoasterList() {
 
   displayList.forEach((coaster, index) => {
     const parkObj = state.parks.find((p) => p.name === coaster.park);
-    const country = parkObj ? parkObj.country : null;
+    // Use coaster's country if present (for "Otro" park), otherwise use park's country
+    const country = coaster.country || (parkObj ? parkObj.country : null);
 
     if (state.filterPark && coaster.park !== state.filterPark) return;
     if (state.filterMfg && coaster.mfg !== state.filterMfg) return;
@@ -293,7 +293,7 @@ function renderCoasterList() {
     const isSelected = state.selectedItems.has(coaster.id);
 
     const card = document.createElement("div");
-    card.className = `coaster-card ${state.isDeleteMode && isSelected ? "selected" : ""}`;
+    card.className = `coaster-card ${state.isDeleteMode && isSelected ? "selected" : ""} ${state.isMiniView ? "mini" : ""}`;
     card.dataset.id = coaster.id;
 
     let bgStyle = coaster.photo
@@ -360,6 +360,9 @@ function renderParkList() {
   }
 
   state.parks.forEach((park, index) => {
+    // Skip "Otro" in the parks list view
+    if (park.name === "Otro") return;
+
     const isSelected = state.selectedItems.has(park.name);
     const card = document.createElement("div");
     card.className = `coaster-card ${state.isDeleteMode && isSelected ? "selected" : ""}`;
@@ -526,6 +529,16 @@ function setupEventListeners() {
     }
   });
 
+  // View Toggle Btn
+  const viewToggleBtn = document.getElementById("view-toggle-btn");
+  if (viewToggleBtn) {
+    viewToggleBtn.addEventListener("click", () => {
+      state.isMiniView = !state.isMiniView;
+      viewToggleBtn.textContent = state.isMiniView ? "📐" : "📏";
+      renderApp();
+    });
+  }
+
   // Nav
   dom.navItems.forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -598,6 +611,28 @@ function setupEventListeners() {
     }
   });
 
+  // Handle Park selection - show country field if "Otro" is selected
+  dom.inputs.park.addEventListener("change", (e) => {
+    const countryGroup = document.getElementById("coaster-country-group");
+    const countrySelect = document.getElementById("coaster-country");
+
+    if (e.target.value === "Otro") {
+      countryGroup.style.display = "block";
+      // Populate country options
+      countrySelect.innerHTML =
+        '<option value="" disabled selected>Selecciona País...</option>' +
+        Object.keys(countryFlags)
+          .map(
+            (code) =>
+              `<option value="${code}">${getFlag(code)} ${code}</option>`,
+          )
+          .join("");
+    } else {
+      countryGroup.style.display = "none";
+      countrySelect.value = "";
+    }
+  });
+
   // Submits
   dom.forms.coaster.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -607,6 +642,8 @@ function setupEventListeners() {
     const mfg = dom.inputs.mfg.value;
     const photo = dom.photoPreview.dataset.tempSrc || null;
     const rankInput = document.getElementById("input-rank").value;
+    const coasterCountry =
+      document.getElementById("coaster-country").value || null;
 
     let targetRank = rankInput ? parseInt(rankInput) : null;
 
@@ -618,6 +655,7 @@ function setupEventListeners() {
         coaster.height = height;
         coaster.park = park;
         coaster.mfg = mfg;
+        coaster.country = coasterCountry;
         if (photo) coaster.photo = photo;
 
         await handleRankUpdate("coasters", coaster, targetRank);
@@ -630,6 +668,7 @@ function setupEventListeners() {
         park,
         mfg,
         photo,
+        country: coasterCountry,
       };
       await handleRankUpdate("coasters", newCoaster, targetRank, true);
     }
@@ -869,6 +908,129 @@ function setupEventListeners() {
       reader.readAsText(file);
     });
   }
+
+  // --- SETTINGS MODAL ---
+  const settingsBtn = document.getElementById("settings-btn");
+  const settingsModal = document.getElementById("settings-modal");
+  const closeSettingsModal = document.getElementById("close-settings-modal");
+  const addNewMfgBtn = document.getElementById("add-new-mfg-btn");
+
+  function renderMfgList() {
+    const container = document.getElementById("mfg-list-container");
+    container.innerHTML = "";
+
+    if (state.manufacturers.length === 0) {
+      container.innerHTML =
+        '<p style="text-align: center; color: #999;">No hay manufacturadoras creadas.</p>';
+      return;
+    }
+
+    state.manufacturers.forEach((mfg) => {
+      const item = document.createElement("div");
+      item.className = "mfg-item";
+
+      const usageCount = state.coasters.filter(
+        (c) => c.mfg === mfg.name,
+      ).length;
+
+      item.innerHTML = `
+        <div class="mfg-item-name">${mfg.name} <span style="color: #999; font-size: 12px;">(${usageCount} coasters)</span></div>
+        <div class="mfg-item-actions">
+          <button class="mfg-item-btn" data-mfg="${mfg.name}">✏️ Editar</button>
+          <button class="mfg-item-btn delete" data-mfg="${mfg.name}">🗑️ Borrar</button>
+        </div>
+      `;
+
+      // Edit button
+      item
+        .querySelector(".mfg-item-btn:not(.delete)")
+        .addEventListener("click", async () => {
+          const newName = prompt(`Renombrar "${mfg.name}" a:`, mfg.name);
+          if (!newName || newName === mfg.name) return;
+
+          if (state.manufacturers.find((m) => m.name === newName)) {
+            alert("¡Ya existe una manufacturadora con ese nombre!");
+            return;
+          }
+
+          // Update manufacturer
+          const tx = db.transaction("manufacturers", "readwrite");
+          const store = tx.objectStore("manufacturers");
+          store.delete(mfg.name);
+          store.put({ name: newName });
+
+          // Update all coasters using this manufacturer
+          const coastersToUpdate = state.coasters.filter(
+            (c) => c.mfg === mfg.name,
+          );
+          if (coastersToUpdate.length > 0) {
+            const coasterTx = db.transaction("coasters", "readwrite");
+            const coasterStore = coasterTx.objectStore("coasters");
+            coastersToUpdate.forEach((c) => {
+              c.mfg = newName;
+              coasterStore.put(c);
+            });
+            await new Promise((r) => (coasterTx.oncomplete = r));
+          }
+
+          await new Promise((r) => (tx.oncomplete = r));
+          await loadData();
+          renderMfgList();
+          updateSelectOptions();
+        });
+
+      // Delete button
+      item
+        .querySelector(".mfg-item-btn.delete")
+        .addEventListener("click", async () => {
+          if (usageCount > 0) {
+            if (
+              !confirm(
+                `Esta manufacturadora está siendo usada por ${usageCount} coaster(s). ¿Seguro que quieres borrarla? Las coasters quedarán sin manufacturadora.`,
+              )
+            ) {
+              return;
+            }
+          }
+
+          const tx = db.transaction("manufacturers", "readwrite");
+          const store = tx.objectStore("manufacturers");
+          store.delete(mfg.name);
+          await new Promise((r) => (tx.oncomplete = r));
+          await loadData();
+          renderMfgList();
+          updateSelectOptions();
+        });
+
+      container.appendChild(item);
+    });
+  }
+
+  if (settingsBtn) {
+    settingsBtn.addEventListener("click", () => {
+      settingsModal.classList.remove("hidden");
+      renderMfgList();
+    });
+  }
+
+  if (closeSettingsModal) {
+    closeSettingsModal.addEventListener("click", () => {
+      settingsModal.classList.add("hidden");
+    });
+  }
+
+  if (addNewMfgBtn) {
+    addNewMfgBtn.addEventListener("click", () => {
+      settingsModal.classList.add("hidden");
+      dom.modal.classList.remove("hidden");
+      dom.forms.coaster.classList.add("hidden");
+      dom.forms.park.classList.add("hidden");
+      dom.forms.mfg.classList.remove("hidden");
+      dom.modalTitle.textContent = "Crear Manufacturadora";
+      dom.mfgName.value = "";
+      dom.mfgName.focus();
+    });
+  }
 }
 
 window.editCoaster = (id) => {
@@ -893,6 +1055,25 @@ window.editCoaster = (id) => {
   dom.inputs.park.value = coaster.park;
   dom.inputs.mfg.value = coaster.mfg;
   document.getElementById("input-rank").value = coaster.rank;
+
+  // Handle coaster country if park is "Otro"
+  const countryGroup = document.getElementById("coaster-country-group");
+  const countrySelect = document.getElementById("coaster-country");
+  if (coaster.park === "Otro") {
+    countryGroup.style.display = "block";
+    countrySelect.innerHTML =
+      '<option value="" disabled selected>Selecciona País...</option>' +
+      Object.keys(countryFlags)
+        .map(
+          (code) => `<option value="${code}">${getFlag(code)} ${code}</option>`,
+        )
+        .join("");
+    if (coaster.country) {
+      countrySelect.value = coaster.country;
+    }
+  } else {
+    countryGroup.style.display = "none";
+  }
 
   if (coaster.photo) {
     dom.photoPreview.innerHTML = `<img src="${coaster.photo}" style="width:100%; height:100%; object-fit:cover; border-radius:12px;">`;
