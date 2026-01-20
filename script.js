@@ -280,6 +280,8 @@ function renderCoasterList() {
     return;
   }
 
+  let displayRank = 0; // Counter for displayed cards only
+
   displayList.forEach((coaster, index) => {
     const parkObj = state.parks.find((p) => p.name === coaster.park);
     // Use coaster's country if present (for "Otro" park), otherwise use park's country
@@ -289,7 +291,7 @@ function renderCoasterList() {
     if (state.filterMfg && coaster.mfg !== state.filterMfg) return;
     if (state.filterCountry && country !== state.filterCountry) return;
 
-    const displayRank = index + 1;
+    displayRank++; // Increment only for cards that pass filters
     const isSelected = state.selectedItems.has(coaster.id);
 
     const card = document.createElement("div");
