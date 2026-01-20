@@ -1,0 +1,16 @@
+{
+    "name": "Coaster Top",
+    "short_name": "CoasterTop",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0f0f13",
+    "theme_color": "#0f0f13",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "https://cdn-icons-png.flaticon.com/512/2319/2319888.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

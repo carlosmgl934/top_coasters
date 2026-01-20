@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>Coaster Top</title>
+    <meta name="theme-color" content="#0f0f13" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="stylesheet" href="style.css" />
+    <!-- Font: Outfit for a modern tech/premium feel -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Cropper.js CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css"
+    />
+  </head>
+  <body>
+    <div class="app-container">
+      <!-- Header -->
+      <!-- Header -->
+      <header class="app-header">
+        <h1 id="app-title">Top Coasters</h1>
+        <div style="display: flex; gap: 10px">
+          <button id="data-btn" class="icon-btn" style="background: rgba(94, 106, 210, 0.2); color: #8e99f3;">💾</button>
+          <button id="trash-btn" class="icon-btn">🗑️</button>
+          <button id="add-btn" class="icon-btn">＋</button>
+        </div>
+      </header>
+
+      <!-- Filters (Hidden by default, shown in Coaster view) -->
+      <div id="filter-bar" class="filter-bar">
+        <select id="sort-by" style="background: #5e6ad2; font-weight: bold">
+          <option value="rank">Orden: Ranking</option>
+          <option value="height">Orden: Altura</option>
+        </select>
+        <select id="filter-park">
+          <option value="">Todos los Parques</option>
+        </select>
+        <select id="filter-country">
+          <option value="">Todos los Países</option>
+        </select>
+        <select id="filter-mfg">
+          <option value="">Todas las Manufacturadoras</option>
+        </select>
+      </div>
+
+      <!-- content-area wrapper for scrolling -->
+      <div class="content-area">
+        <!-- Coaster List -->
+        <main id="coaster-list" class="list-view active">
+          <div class="empty-state">
+            <p>Tu ranking está vacío.</p>
+            <p>¡Añade tu primera montaña rusa!</p>
+          </div>
+        </main>
+
+        <!-- Parks List -->
+        <main id="park-list-view" class="list-view hidden">
+          <div class="empty-state">
+            <p>No hay parques.</p>
+          </div>
+        </main>
+      </div>
+
+      <!-- Bottom Navigation -->
+      <nav class="bottom-nav">
+        <button class="nav-item active" data-target="coaster-list">
+          <span>🎢 Coasters</span>
+        </button>
+        <button class="nav-item" data-target="park-list-view">
+          <span>🎡 Parques</span>
+        </button>
+      </nav>
+
+      <!-- Add/Edit Modal -->
+      <div id="coaster-modal" class="modal hidden">
+        <div class="modal-content glass-panel">
+          <span class="close-modal">&times;</span>
+          <h2 id="modal-title">Añadir</h2>
+
+          <!-- COASTER FORM -->
+          <form id="coaster-form">
+            <div class="form-group photo-upload-group">
+              <label
+                for="photo-input"
+                class="photo-placeholder"
+                id="photo-preview"
+              >
+                <span>📷 Toca para añadir foto</span>
+              </label>
+              <input type="file" id="photo-input" accept="image/*" hidden />
+            </div>
+
+            <div class="form-group">
+              <label>Nombre</label>
+              <input
+                type="text"
+                id="input-name"
+                placeholder="Ej: Shambhala"
+                required
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="form-group">
+              <label>Altura (m)</label>
+              <input
+                type="number"
+                id="input-height"
+                placeholder="76.5"
+                step="0.1"
+                inputmode="decimal"
+              />
+            </div>
+
+            <div class="form-group">
+              <label>Parque</label>
+              <select id="input-park" required>
+                <option value="" disabled selected>
+                  Selecciona un Parque...
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Manufacturadora</label>
+              <div class="autocomplete-wrapper">
+                <!-- Keeping Mfg as text/datalist or select? User said "select con parques y manufacturadora". Let's try select for both but allow 'add new' via a clear button if needed, or just require them to exist. 
+                             Actually, user said "cogerlo de ahi, de los ya creados".
+                             Let's make both Selects. But we need a way to create Manufacturers since we don't have a 'Manufacturers' tab yet (only Parks Top). 
+                             I'll stick to Select for uniformity as requested. -->
+                <!-- <input type="text" id="input-mfg" placeholder="Ej: B&M" list="mfg-list" autocomplete="off"> 
+                                 Changing to Select below -->
+                <select id="input-mfg" required>
+                  <option value="" disabled selected>
+                    Selecciona Manufacturadora...
+                  </option>
+                  <option value="new">+ Crear Nueva...</option>
+                </select>
+              </div>
+            </div>
+            <!-- Rank Input (Optional) -->
+            <div class="form-group">
+              <label>Posición en Top (Opcional)</label>
+              <input
+                type="number"
+                id="input-rank"
+                placeholder="Ej: 1"
+                min="1"
+              />
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn-primary">Guardar Coaster</button>
+            </div>
+          </form>
+
+          <!-- PARK FORM (Hidden by default, shown when adding park) -->
+          <form id="park-form" class="hidden">
+            <div class="form-group">
+              <label>Nombre del Parque</label>
+              <input
+                type="text"
+                id="park-name"
+                placeholder="Ej: Parque Warner"
+                required
+                autocomplete="off"
+              />
+            </div>
+            <div class="form-group">
+              <label>País</label>
+              <select id="park-country" required>
+                <!-- Populated by JS -->
+              </select>
+            </div>
+
+            <!-- Rank Input (Optional) -->
+            <div class="form-group">
+              <label>Posición en Top (Opcional)</label>
+              <input type="number" id="park-rank" placeholder="Ej: 1" min="1" />
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn-primary">Guardar Parque</button>
+            </div>
+          </form>
+
+          <!-- MFG FORM (Hidden by default, for quick add) -->
+          <form id="mfg-form" class="hidden">
+            <div class="form-group">
+              <label>Nombre Manufacturadora</label>
+              <input
+                type="text"
+                id="mfg-name-input"
+                placeholder="Ej: Intamin"
+                required
+                autocomplete="off"
+              />
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn-primary">
+                Guardar Manufacturadora
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <!-- CROP MODAL -->
+    <div id="crop-modal" class="modal center-modal hidden" style="z-index: 2000;">
+      <div class="modal-content glass-panel" style="max-width: 90%; height: 80vh; display: flex; flex-direction: column;">
+        <h2 style="margin-bottom: 10px;">Recortar Imagen</h2>
+        <div style="flex: 1; overflow: hidden; background: #000; border-radius: 8px; position: relative;">
+          <img id="crop-image" src="" style="max-width: 100%; display: block;" />
+        </div>
+        <div class="form-actions" style="margin-top: 15px; justify-content: space-between;">
+           <button type="button" class="btn-secondary" id="crop-cancel-btn">Cancelar</button>
+           <button type="button" class="btn-primary" id="crop-confirm-btn">Recortar y Guardar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DATA MODAL -->
+    <div id="data-modal" class="modal center-modal hidden" style="z-index: 2000;">
+      <div class="modal-content glass-panel" style="max-width: 90%; width: 320px; text-align: center;">
+        <span class="close-modal" id="close-data-modal">&times;</span>
+        <h2 style="margin-bottom: 20px;">Copia de Seguridad</h2>
+        <p style="color: #aaa; margin-bottom: 25px; font-size: 14px;">
+          Guarda tus datos para no perderlos al subir la web a Internet.
+        </p>
+        
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            <button id="export-btn" class="btn-primary" style="background: #27ae60;">
+                ⬇️ Exportar Datos
+            </button>
+            
+            <div style="position: relative;">
+                <button class="btn-primary" style="background: #e67e22; width: 100%;">
+                    ⬆️ Importar Datos
+                </button>
+                <input type="file" id="import-file" accept=".json" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
+            </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cropper.js JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+    <script type="module" src="script.js"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker
+          .register("sw.js")
+          .then((r) => console.log("SW Registered"))
+          .catch(console.error);
+      }
+    </script>
+  </body>
+</html>

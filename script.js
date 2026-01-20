@@ -1,0 +1,989 @@
+/**
+ * Coaster Top - Main Application Logic v2 (Tabs + Parks)
+ */
+
+// --- Database Configuration ---
+const DB_NAME = "CoasterTopDB";
+const DB_VERSION = 2; // Incremented for robustness if needed, though schema is same logic
+let db;
+
+// --- State ---
+const state = {
+  view: "coasters", // 'coasters' or 'parks'
+  coasters: [],
+  parks: [],
+  manufacturers: [],
+  filterPark: "",
+  filterMfg: "",
+  filterCountry: "", // New
+  sortBy: "rank",
+  isDeleteMode: false,
+  sortBy: "rank",
+  isDeleteMode: false,
+  selectedItems: new Set(),
+  isDeleteMode: false,
+  selectedItems: new Set(),
+  editingPark: null,
+  editingCoaster: null, // New
+};
+
+let cropper; // Global cropper instance
+
+const countryFlags = {
+  ES: "🇪🇸",
+  USA: "🇺🇸",
+  DE: "🇩🇪",
+  UK: "🇬🇧",
+  FR: "🇫🇷",
+  NL: "🇳🇱",
+  BE: "🇧🇪",
+  SE: "🇸🇪",
+  IT: "🇮🇹",
+  JP: "🇯🇵",
+  CN: "🇨🇳",
+  CA: "🇨🇦",
+  AE: "🇦🇪",
+  PL: "🇵🇱",
+  PT: "🇵🇹",
+  OTHER: "🌍",
+};
+
+function getFlag(code) {
+  return countryFlags[code] || "🌍";
+}
+
+// --- DOM Elements ---
+const dom = {
+  // Nav
+  navItems: document.querySelectorAll(".nav-item"),
+  views: {
+    coasters: document.getElementById("coaster-list"),
+    parks: document.getElementById("park-list-view"),
+  },
+  title: document.getElementById("app-title"),
+  filterBar: document.getElementById("filter-bar"),
+  sortBySelect: document.getElementById("sort-by"),
+
+  // Header Btns
+  addBtn: document.getElementById("add-btn"),
+  trashBtn: document.getElementById("trash-btn"),
+
+  // Modal / Forms
+  modal: document.getElementById("coaster-modal"),
+  modalTitle: document.getElementById("modal-title"),
+  closeModal: document.querySelector(".close-modal"),
+
+  forms: {
+    coaster: document.getElementById("coaster-form"),
+    park: document.getElementById("park-form"),
+    mfg: document.getElementById("mfg-form"),
+  },
+
+  inputs: {
+    name: document.getElementById("input-name"),
+    height: document.getElementById("input-height"),
+    park: document.getElementById("input-park"),
+    mfg: document.getElementById("input-mfg"),
+    file: document.getElementById("photo-input"),
+    parkCountry: document.getElementById("park-country"), // New
+  },
+
+  parkName: document.getElementById("park-name"),
+  mfgName: document.getElementById("mfg-name-input"),
+
+  photoPreview: document.getElementById("photo-preview"),
+};
+
+// --- Init ---
+async function init() {
+  await initDB();
+  await loadData();
+  renderApp();
+  setupEventListeners();
+}
+
+// Module scripts might run after DOMContentLoaded. Check readyState.
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
+
+// --- IndexedDB ---
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onerror = (e) => reject("DB Error");
+
+    request.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains("coasters")) {
+        const store = db.createObjectStore("coasters", {
+          keyPath: "id",
+          autoIncrement: true,
+        });
+        store.createIndex("rank", "rank", { unique: false });
+      }
+      if (!db.objectStoreNames.contains("parks")) {
+        // Changing to allow rank. Existing data transfer?
+        // For safety in this quick iteration, we keep keyPath 'name' but we will trust 'rank' property in value.
+        // ideally we use IDs but let's stick to name for simplicity with previous code.
+        db.createObjectStore("parks", { keyPath: "name" });
+      }
+      if (!db.objectStoreNames.contains("manufacturers")) {
+        db.createObjectStore("manufacturers", { keyPath: "name" });
+      }
+    };
+
+    request.onsuccess = (e) => {
+      db = e.target.result;
+      resolve(db);
+    };
+  });
+}
+
+async function loadData() {
+  state.coasters = await getAll("coasters");
+  state.parks = await getAll("parks");
+
+  // Ensure "Otro" park exists for loose coasters
+  if (!state.parks.find((p) => p.name === "Otro")) {
+    await addData("parks", { name: "Otro", country: "OTHER", rank: 9999 });
+    state.parks = await getAll("parks");
+  }
+
+  state.manufacturers = await getAll("manufacturers");
+
+  // Initial sort by persistent rank (always load correct DB order)
+  state.coasters.sort((a, b) => (a.rank || 0) - (b.rank || 0));
+  state.parks.sort((a, b) => (a.rank || 0) - (b.rank || 0));
+}
+
+function getAll(storeName) {
+  return new Promise((resolve) => {
+    const tx = db.transaction(storeName, "readonly");
+    const store = tx.objectStore(storeName);
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result);
+  });
+}
+
+function addData(storeName, data) {
+  return new Promise((resolve) => {
+    const tx = db.transaction(storeName, "readwrite");
+    const store = tx.objectStore(storeName);
+    store.put(data);
+    tx.oncomplete = () => resolve();
+  });
+}
+
+// --- UI Logic ---
+function renderApp() {
+  // Header State
+  if (state.isDeleteMode) {
+    dom.trashBtn.textContent = "✔️"; // Click to confirm mass delete
+    dom.trashBtn.style.background = "#ff4757";
+    dom.title.textContent = `Borrar (${state.selectedItems.size})`;
+    dom.filterBar.classList.add("hidden");
+  } else {
+    dom.trashBtn.textContent = "🗑️";
+    dom.trashBtn.style.background = "rgba(255, 255, 255, 0.1)";
+
+    if (state.view === "coasters") {
+      dom.filterBar.classList.remove("hidden");
+      dom.title.textContent = "Top Coasters";
+    } else {
+      dom.filterBar.classList.add("hidden");
+      dom.title.textContent = "Top Parques";
+    }
+  }
+
+  if (state.view === "coasters") {
+    renderCoasterList();
+  } else {
+    renderParkList();
+  }
+
+  // Update Selects (only if not editing, to avoid clobbering active form interactions)
+  if (!state.editingCoaster && !state.editingPark) {
+    updateSelectOptions();
+  }
+}
+
+function renderCoasterList() {
+  // Calculation of counts for filter
+  const parkCounts = {};
+  const mfgCounts = {};
+  const countryCounts = {};
+
+  state.coasters.forEach((c) => {
+    parkCounts[c.park] = (parkCounts[c.park] || 0) + 1;
+    mfgCounts[c.mfg] = (mfgCounts[c.mfg] || 0) + 1;
+    const parkObj = state.parks.find((p) => p.name === c.park);
+    if (parkObj && parkObj.country) {
+      countryCounts[parkObj.country] =
+        (countryCounts[parkObj.country] || 0) + 1;
+    }
+  });
+
+  // Update Filter Selects
+  const currentPark = document.getElementById("filter-park").value;
+  const currentMfg = document.getElementById("filter-mfg").value;
+  const currentCountry = document.getElementById("filter-country").value;
+
+  document.getElementById("filter-park").innerHTML =
+    '<option value="">Todos los Parques</option>' +
+    state.parks
+      .map(
+        (p) =>
+          `<option value="${p.name}">${p.name} (${parkCounts[p.name] || 0})</option>`,
+      )
+      .join("");
+
+  document.getElementById("filter-mfg").innerHTML =
+    '<option value="">Todas las Manufacturadoras</option>' +
+    state.manufacturers
+      .map(
+        (m) =>
+          `<option value="${m.name}">${m.name} (${mfgCounts[m.name] || 0})</option>`,
+      )
+      .join("");
+
+  document.getElementById("filter-country").innerHTML =
+    '<option value="">Todos los Países</option>' +
+    Object.keys(countryFlags)
+      .map((code) => {
+        const count = countryCounts[code] || 0;
+        return `<option value="${code}">${getFlag(code)} ${code} (${count})</option>`;
+      })
+      .join("");
+
+  document.getElementById("filter-park").value = currentPark;
+  document.getElementById("filter-mfg").value = currentMfg;
+  document.getElementById("filter-country").value = currentCountry;
+
+  // Render List
+  dom.views.coasters.innerHTML = "";
+
+  // Create a Display List based on Sort Order
+  let displayList = [...state.coasters];
+
+  if (state.sortBy === "height") {
+    displayList.sort((a, b) => parseFloat(b.height) - parseFloat(a.height));
+  } else {
+    // Assume already sorted by rank in state.coasters, but let's ensure
+    displayList.sort((a, b) => (a.rank || 0) - (b.rank || 0));
+  }
+
+  if (displayList.length === 0) {
+    dom.views.coasters.innerHTML = `<div class="empty-state"><p>Ranking Vacío</p></div>`;
+    return;
+  }
+
+  displayList.forEach((coaster, index) => {
+    const parkObj = state.parks.find((p) => p.name === coaster.park);
+    const country = parkObj ? parkObj.country : null;
+
+    if (state.filterPark && coaster.park !== state.filterPark) return;
+    if (state.filterMfg && coaster.mfg !== state.filterMfg) return;
+    if (state.filterCountry && country !== state.filterCountry) return;
+
+    const displayRank = index + 1;
+    const isSelected = state.selectedItems.has(coaster.id);
+
+    const card = document.createElement("div");
+    card.className = `coaster-card ${state.isDeleteMode && isSelected ? "selected" : ""}`;
+    card.dataset.id = coaster.id;
+
+    let bgStyle = coaster.photo
+      ? `<img src="${coaster.photo}" class="card-bg-img" alt="${coaster.name}">`
+      : `<div class="card-bg-img" style="background: linear-gradient(45deg, #2c3e50, #4ca1af);"></div>`;
+
+    const flag = country ? getFlag(country) : "";
+    const flagHtml = flag ? `<span class="flag-pop">${flag}</span>` : "";
+
+    if (state.isDeleteMode) {
+      card.innerHTML = `
+            ${bgStyle}
+            <div class="selection-indicator ${isSelected ? "checked" : ""}">
+                ${isSelected ? "✔" : ""}
+            </div>
+            <div class="card-content">
+                <div class="card-info">
+                    <h3>${coaster.name} ${flagHtml}</h3>
+                </div>
+            </div>
+        `;
+      card.onclick = () => toggleSelection(coaster.id);
+    } else {
+      let reorderControls = "";
+      if (
+        state.sortBy === "rank" &&
+        !state.filterPark &&
+        !state.filterMfg &&
+        !state.filterCountry
+      ) {
+        reorderControls = getReorderControls(index, state.coasters.length);
+      }
+
+      const rankClass = displayRank <= 3 ? `rank-${displayRank}` : "";
+      const nameClass = coaster.name.length > 20 ? "long-text" : "";
+
+      card.innerHTML = `
+            ${bgStyle}
+            <div class="rank-badge ${rankClass}">${flagHtml} #${displayRank}</div>
+            ${reorderControls}
+            <div class="card-content">
+                <div class="card-info">
+                    <h3 class="${nameClass}">${coaster.name}</h3>
+                    <div class="card-meta">
+                        <span class="pill">${coaster.park}</span>
+                        <span class="pill">${coaster.mfg}</span>
+                        ${coaster.height ? `<span>${coaster.height}m</span>` : ""}
+                    </div>
+                </div>
+            </div>
+        `;
+      card.onclick = () => editCoaster(coaster.id);
+    }
+    dom.views.coasters.appendChild(card);
+  });
+}
+
+function renderParkList() {
+  dom.views.parks.innerHTML = "";
+
+  if (state.parks.length === 0) {
+    dom.views.parks.innerHTML = `<div class="empty-state"><p>No hay parques.</p></div>`;
+    return;
+  }
+
+  state.parks.forEach((park, index) => {
+    const isSelected = state.selectedItems.has(park.name);
+    const card = document.createElement("div");
+    card.className = `coaster-card ${state.isDeleteMode && isSelected ? "selected" : ""}`;
+    card.style.height = "100px";
+
+    let bgStyle = `<div class="card-bg-img" style="background: linear-gradient(45deg, #FF512F, #DD2476);"></div>`;
+    const flag = park.country ? getFlag(park.country) : "";
+    const flagHtml = flag ? `<span class="flag-pop">${flag}</span>` : "";
+
+    if (state.isDeleteMode) {
+      card.innerHTML = `
+            ${bgStyle}
+            <div class="selection-indicator ${isSelected ? "checked" : ""}">
+                ${isSelected ? "✔" : ""}
+            </div>
+            <div class="card-content">
+                <div class="card-info"><h3>${park.name} ${flagHtml}</h3></div>
+            </div>
+        `;
+      card.onclick = () => toggleSelection(park.name);
+    } else {
+      let reorderControls = getReorderControls(index, state.parks.length);
+      const rankClass = index + 1 <= 3 ? `rank-${index + 1}` : "";
+
+      card.innerHTML = `
+            ${bgStyle}
+            <div class="rank-badge ${rankClass}">${flagHtml} #${index + 1}</div>
+            ${reorderControls}
+            <div class="card-content">
+                <div class="card-info">
+                    <h3>${park.name}</h3>
+                </div>
+            </div>
+        `;
+      card.onclick = () => editPark(park.name);
+    }
+
+    dom.views.parks.appendChild(card);
+  });
+}
+
+function getReorderControls(index, total) {
+  return `
+        <div class="reorder-controls">
+            <button class="reorder-btn up" onclick="moveItem(event, ${index}, -1)">▲</button>
+            <button class="reorder-btn down" onclick="moveItem(event, ${index}, 1)">▼</button>
+        </div>
+    `;
+}
+
+function toggleSelection(id) {
+  if (state.selectedItems.has(id)) {
+    state.selectedItems.delete(id);
+  } else {
+    state.selectedItems.add(id);
+  }
+  renderApp();
+}
+
+async function executeMassDelete() {
+  if (state.selectedItems.size === 0) return;
+
+  if (!confirm(`¿Borrar ${state.selectedItems.size} elementos?`)) return;
+
+  const storeName = state.view; // coasters or parks
+  const tx = db.transaction(storeName, "readwrite");
+  const store = tx.objectStore(storeName);
+
+  state.selectedItems.forEach((id) => {
+    store.delete(id);
+  });
+
+  await new Promise((r) => (tx.oncomplete = r));
+  state.selectedItems.clear();
+  state.isDeleteMode = false;
+  await loadData();
+  renderApp();
+}
+
+// Global Delete Item
+window.deleteItem = async (id, storeName) => {
+  if (!confirm("¿Seguro que quieres borrarlo?")) return;
+
+  const tx = db.transaction(storeName, "readwrite");
+  const store = tx.objectStore(storeName);
+  store.delete(id);
+
+  await new Promise((r) => (tx.oncomplete = r));
+  await loadData(); // Reload all data to refresh state
+  renderApp();
+};
+
+// Global Move Item
+window.moveItem = async (e, index, direction) => {
+  if (e) e.stopPropagation();
+  const list = state.view === "coasters" ? state.coasters : state.parks;
+  const storeName = state.view;
+
+  if (direction === -1 && index === 0) return;
+  if (direction === 1 && index === list.length - 1) return;
+
+  const newIndex = index + direction;
+
+  // Swap
+  const temp = list[index];
+  list[index] = list[newIndex];
+  list[newIndex] = temp;
+
+  // Update DB
+  const tx = db.transaction(storeName, "readwrite");
+  const store = tx.objectStore(storeName);
+
+  for (let i = 0; i < list.length; i++) {
+    const item = list[i];
+    item.rank = i + 1;
+    store.put(item);
+  }
+
+  await new Promise((r) => (tx.oncomplete = r));
+  renderApp();
+};
+
+window.editPark = (name) => {
+  const park = state.parks.find((p) => p.name === name);
+  if (!park) return;
+
+  state.editingPark = name;
+
+  // Open Modal
+  dom.modal.classList.remove("hidden");
+  dom.forms.coaster.classList.add("hidden");
+  dom.forms.mfg.classList.add("hidden");
+
+  dom.forms.park.classList.remove("hidden");
+  dom.modalTitle.textContent = "Editar Parque";
+
+  // Populate
+  dom.parkName.value = park.name;
+  dom.parkName.disabled = true; // Key cannot be changed easily
+
+  // Populate Country
+  updateSelectOptions();
+  if (park.country) {
+    dom.inputs.parkCountry.value = park.country;
+  }
+};
+
+// --- Event Listeners ---
+function setupEventListeners() {
+  // Trash Btn
+  dom.trashBtn.addEventListener("click", () => {
+    if (!state.isDeleteMode) {
+      state.isDeleteMode = true;
+      state.selectedItems.clear();
+      renderApp();
+    } else {
+      if (state.selectedItems.size > 0) {
+        executeMassDelete();
+      } else {
+        // If nothing selected, just exit mode
+        state.isDeleteMode = false;
+        renderApp();
+      }
+    }
+  });
+
+  // Nav
+  dom.navItems.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      // Reset delete mode on switch
+      if (state.isDeleteMode) {
+        state.isDeleteMode = false;
+        state.selectedItems.clear();
+      }
+
+      dom.navItems.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      // Switch View
+      dom.views.coasters.classList.add("hidden");
+      dom.views.parks.classList.add("hidden");
+      dom.views.coasters.classList.remove("active");
+      dom.views.parks.classList.remove("active");
+
+      const target = btn.dataset.target; // coaster-list or park-list-view
+      document.getElementById(target).classList.remove("hidden");
+      document.getElementById(target).classList.add("active");
+
+      // Update State
+      state.view = target === "coaster-list" ? "coasters" : "parks";
+      renderApp();
+    });
+  });
+
+  // Add Button
+  dom.addBtn.addEventListener("click", () => {
+    if (state.isDeleteMode) {
+      // Exit delete mode when Add is clicked?
+      // User said "deja el boton de mas que habia antes", so maybe just exit mode and open modal.
+      state.isDeleteMode = false;
+      state.selectedItems.clear();
+      renderApp();
+    }
+
+    // Prepare Modal based on View
+    dom.modal.classList.remove("hidden");
+    dom.forms.coaster.classList.add("hidden");
+    dom.forms.park.classList.add("hidden");
+    dom.forms.mfg.classList.add("hidden");
+
+    if (state.view === "coasters") {
+      dom.modalTitle.textContent = "Añadir Coaster";
+      dom.forms.coaster.classList.remove("hidden");
+      dom.forms.coaster.reset();
+      dom.photoPreview.innerHTML = "<span>📷 Toca para añadir foto</span>";
+      dom.photoPreview.removeAttribute("data-temp-src");
+      state.editingCoaster = null; // Clear edit
+      updateSelectOptions(); // Ensure up to date
+    } else {
+      dom.modalTitle.textContent = "Añadir Parque";
+      dom.forms.park.classList.remove("hidden");
+      dom.forms.park.reset();
+      dom.parkName.disabled = false; // Reset
+      state.editingPark = null; // Clear edit mode
+      updateSelectOptions(); // Ensure country list is populated
+    }
+  });
+
+  // Handle "New Mfg" select
+  dom.inputs.mfg.addEventListener("change", (e) => {
+    if (e.target.value === "new_mfg") {
+      dom.forms.coaster.classList.add("hidden");
+      dom.forms.mfg.classList.remove("hidden");
+      dom.modalTitle.textContent = "Crear Manufacturadora";
+      dom.mfgName.focus();
+    }
+  });
+
+  // Submits
+  dom.forms.coaster.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = dom.inputs.name.value;
+    const height = dom.inputs.height.value;
+    const park = dom.inputs.park.value;
+    const mfg = dom.inputs.mfg.value;
+    const photo = dom.photoPreview.dataset.tempSrc || null;
+    const rankInput = document.getElementById("input-rank").value;
+
+    let targetRank = rankInput ? parseInt(rankInput) : null;
+
+    if (state.editingCoaster) {
+      // Edit Mode
+      const coaster = state.coasters.find((c) => c.id === state.editingCoaster);
+      if (coaster) {
+        coaster.name = name;
+        coaster.height = height;
+        coaster.park = park;
+        coaster.mfg = mfg;
+        if (photo) coaster.photo = photo;
+
+        await handleRankUpdate("coasters", coaster, targetRank);
+      }
+    } else {
+      // Create Mode
+      const newCoaster = {
+        name,
+        height,
+        park,
+        mfg,
+        photo,
+      };
+      await handleRankUpdate("coasters", newCoaster, targetRank, true);
+    }
+
+    await loadData();
+    renderApp();
+    dom.modal.classList.add("hidden");
+    state.editingCoaster = null;
+  });
+
+  dom.forms.park.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = dom.parkName.value;
+    const country = dom.inputs.parkCountry.value;
+    const rankInput = document.getElementById("park-rank").value;
+    let targetRank = rankInput ? parseInt(rankInput) : null;
+
+    if (state.editingPark) {
+      // Edit Mode
+      const park = state.parks.find((p) => p.name === state.editingPark);
+      if (park) {
+        park.country = country;
+        await handleRankUpdate("parks", park, targetRank);
+      }
+    } else {
+      // Create Mode
+      if (state.parks.find((p) => p.name === name)) {
+        alert("¡El parque ya existe!");
+        return;
+      }
+      const newPark = { name, country };
+      await handleRankUpdate("parks", newPark, targetRank, true);
+    }
+
+    await loadData();
+    renderApp();
+    dom.modal.classList.add("hidden");
+    state.editingPark = null;
+    dom.parkName.disabled = false;
+  });
+
+  dom.forms.mfg.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = dom.mfgName.value;
+    if (state.manufacturers.find((m) => m.name === name)) {
+      alert("¡Existe!");
+      return;
+    }
+    await addData("manufacturers", { name });
+    await loadData(); // Reload to get it in select
+
+    // Return to Coaster Form
+    dom.forms.mfg.classList.add("hidden");
+    dom.forms.coaster.classList.remove("hidden");
+    dom.modalTitle.textContent = "Añadir Coaster";
+    updateSelectOptions();
+    dom.inputs.mfg.value = name; // Select the new one
+  });
+
+  // Close
+  dom.closeModal.addEventListener("click", () =>
+    dom.modal.classList.add("hidden"),
+  );
+
+  // Filters
+  document.getElementById("sort-by").addEventListener("change", (e) => {
+    state.sortBy = e.target.value;
+    renderApp();
+  });
+  document.getElementById("filter-park").addEventListener("change", (e) => {
+    state.filterPark = e.target.value;
+    renderApp();
+  });
+  document.getElementById("filter-mfg").addEventListener("change", (e) => {
+    state.filterMfg = e.target.value;
+    renderApp();
+  });
+  document.getElementById("filter-country").addEventListener("change", (e) => {
+    state.filterCountry = e.target.value;
+    renderApp();
+  });
+
+  // Photo
+  // Photo - Intercept for Cropper
+  dom.inputs.file.addEventListener("change", function (e) {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        // Show Crop Modal
+        const cropModal = document.getElementById("crop-modal");
+        const cropImage = document.getElementById("crop-image");
+
+        cropModal.classList.remove("hidden");
+        cropImage.src = e.target.result;
+
+        // Init Cropper
+        if (cropper) {
+          cropper.destroy();
+        }
+        cropper = new Cropper(cropImage, {
+          viewMode: 1,
+          dragMode: "move",
+          aspectRatio: 16 / 9,
+          autoCropArea: 1,
+          restore: false,
+          guides: false,
+          center: false,
+          highlight: false,
+          cropBoxMovable: false,
+          cropBoxResizable: false,
+          toggleDragModeOnDblclick: false,
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+    // Reset value to allow re-selecting same file if canceled
+    e.target.value = "";
+  });
+
+  // Crop Modal Actions
+  document.getElementById("crop-cancel-btn").addEventListener("click", () => {
+    document.getElementById("crop-modal").classList.add("hidden");
+    if (cropper) {
+      cropper.destroy();
+      cropper = null;
+    }
+  });
+
+  document.getElementById("crop-confirm-btn").addEventListener("click", () => {
+    if (!cropper) return;
+
+    const canvas = cropper.getCroppedCanvas();
+    // High quality jpeg
+    const croppedDataUrl = canvas.toDataURL("image/jpeg", 0.95);
+
+    // Initial Preview Update
+    dom.photoPreview.innerHTML = `<img src="${croppedDataUrl}" style="width:100%; height:100%; object-fit:cover; border-radius:12px;">`;
+    dom.photoPreview.dataset.tempSrc = croppedDataUrl;
+
+    // Close
+    document.getElementById("crop-modal").classList.add("hidden");
+    cropper.destroy();
+    cropper = null;
+  });
+
+  // --- DATA BACKUP ---
+  const dataBtn = document.getElementById("data-btn");
+  const dataModal = document.getElementById("data-modal");
+  const closeDataModal = document.getElementById("close-data-modal");
+  const exportBtn = document.getElementById("export-btn");
+  const importFile = document.getElementById("import-file");
+
+  if (dataBtn) {
+    dataBtn.addEventListener("click", () => {
+      dataModal.classList.remove("hidden");
+    });
+  }
+
+  if (closeDataModal) {
+    closeDataModal.addEventListener("click", () => {
+      dataModal.classList.add("hidden");
+    });
+  }
+
+  if (exportBtn) {
+    exportBtn.addEventListener("click", async () => {
+      const exportData = {
+        coasters: state.coasters,
+        parks: state.parks,
+        manufacturers: state.manufacturers,
+        exportDate: new Date().toISOString(),
+      };
+
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `coaster-top-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  if (importFile) {
+    importFile.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const importedData = JSON.parse(e.target.result);
+
+          if (
+            !confirm(
+              `Se importarán:\n- ${importedData.coasters?.length || 0} Coasters\n- ${importedData.parks?.length || 0} Parques\n\n¿Seguro? Esto fusionará/sobrescribirá datos.`,
+            )
+          ) {
+            importFile.value = "";
+            return;
+          }
+
+          // Bulk Import
+          if (importedData.parks) {
+            for (const p of importedData.parks) {
+              await addData("parks", p);
+            }
+          }
+          if (importedData.manufacturers) {
+            for (const m of importedData.manufacturers) {
+              await addData("manufacturers", m);
+            }
+          }
+          if (importedData.coasters) {
+            for (const c of importedData.coasters) {
+              await addData("coasters", c);
+            }
+          }
+
+          alert("¡Datos importados correctamente! 🚀");
+          state.isDeleteMode = false; // Reset safe
+          dataModal.classList.add("hidden");
+          importFile.value = "";
+
+          await loadData();
+          renderApp();
+        } catch (err) {
+          alert("Error al leer el archivo JSON: " + err);
+          console.error(err);
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
+}
+
+window.editCoaster = (id) => {
+  const coaster = state.coasters.find((c) => c.id === id);
+  if (!coaster) return;
+
+  state.editingCoaster = id;
+
+  // Populate Selects FIRST so we don't overwrite values later
+  updateSelectOptions();
+
+  dom.modal.classList.remove("hidden");
+  dom.forms.park.classList.add("hidden");
+  dom.forms.mfg.classList.add("hidden");
+
+  dom.forms.coaster.classList.remove("hidden");
+  dom.modalTitle.textContent = "Editar Coaster";
+
+  // Populate Values
+  dom.inputs.name.value = coaster.name;
+  dom.inputs.height.value = coaster.height;
+  dom.inputs.park.value = coaster.park;
+  dom.inputs.mfg.value = coaster.mfg;
+  document.getElementById("input-rank").value = coaster.rank;
+
+  if (coaster.photo) {
+    dom.photoPreview.innerHTML = `<img src="${coaster.photo}" style="width:100%; height:100%; object-fit:cover; border-radius:12px;">`;
+    dom.photoPreview.dataset.tempSrc = coaster.photo;
+  } else {
+    dom.photoPreview.innerHTML = "<span>📷 Toca para añadir foto</span>";
+    dom.photoPreview.removeAttribute("data-temp-src");
+  }
+};
+
+function updateSelectOptions() {
+  const pSelect = dom.inputs.park;
+  const mSelect = dom.inputs.mfg;
+  const cSelect = dom.inputs.parkCountry;
+
+  // Preserve current selection
+  const pVal = pSelect.value;
+  const mVal = mSelect.value;
+  const cVal = cSelect ? cSelect.value : "";
+
+  pSelect.innerHTML =
+    '<option value="" disabled selected>Selecciona un Parque...</option>' +
+    state.parks
+      .map((p) => `<option value="${p.name}">${p.name}</option>`)
+      .join("");
+
+  mSelect.innerHTML =
+    '<option value="" disabled selected>Selecciona Manufacturadora...</option>' +
+    state.manufacturers
+      .map((m) => `<option value="${m.name}">${m.name}</option>`)
+      .join("") +
+    '<option value="new_mfg">+ Crear Nueva...</option>';
+
+  // Update Park Country Select
+  if (cSelect) {
+    cSelect.innerHTML =
+      '<option value="" disabled selected>Selecciona País...</option>' +
+      Object.keys(countryFlags)
+        .map(
+          (code) => `<option value="${code}">${getFlag(code)} ${code}</option>`,
+        )
+        .join("");
+  }
+
+  // Restore selection if valid
+  if (pVal) pSelect.value = pVal;
+  if (mVal) mSelect.value = mVal;
+  if (cVal && cSelect) cSelect.value = cVal;
+}
+
+async function handleRankUpdate(storeName, item, targetRank, isNew = false) {
+  const list = storeName === "coasters" ? state.coasters : state.parks;
+  // Ensure sorted
+  list.sort((a, b) => (a.rank || 0) - (b.rank || 0));
+
+  // If no target rank, or rank same as current (edit), simple save
+  if (!targetRank || targetRank < 1) {
+    if (isNew) {
+      item.rank = list.length + 1;
+    }
+    await addData(storeName, item);
+    return;
+  }
+
+  // Identify key
+  const keyProp = storeName === "coasters" ? "id" : "name";
+
+  // Filter out the item if it exists (for Edit case) to simulate finding the slot
+  // For Coasters we use ID (int), for Parks Name (string)
+  let cleanList = isNew
+    ? [...list]
+    : list.filter((i) => i[keyProp] !== item[keyProp]);
+
+  // Insert at index
+  const index = targetRank - 1;
+  // If index > length, just push
+  if (index >= cleanList.length) {
+    cleanList.push(item);
+  } else {
+    cleanList.splice(index, 0, item);
+  }
+
+  // Re-save all with new ranks
+  const tx = db.transaction(storeName, "readwrite");
+  const store = tx.objectStore(storeName);
+
+  for (let i = 0; i < cleanList.length; i++) {
+    let obj = cleanList[i];
+    obj.rank = i + 1;
+    store.put(obj);
+  }
+
+  await new Promise((r) => (tx.oncomplete = r));
+}
