@@ -269,7 +269,20 @@ function renderCoasterList() {
   let displayList = [...state.coasters];
 
   if (state.sortBy === "height") {
-    displayList.sort((a, b) => parseFloat(b.height) - parseFloat(a.height));
+    displayList.sort((a, b) => {
+      const heightA = parseFloat(a.height) || 0;
+      const heightB = parseFloat(b.height) || 0;
+
+      // If both have no height, maintain original order
+      if (!a.height && !b.height) return 0;
+      // If only A has no height, put it after B
+      if (!a.height) return 1;
+      // If only B has no height, put it after A
+      if (!b.height) return -1;
+
+      // Both have heights, sort descending (highest first)
+      return heightB - heightA;
+    });
   } else {
     // Assume already sorted by rank in state.coasters, but let's ensure
     displayList.sort((a, b) => (a.rank || 0) - (b.rank || 0));
