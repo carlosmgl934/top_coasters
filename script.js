@@ -397,7 +397,7 @@ function renderParkList() {
                 <div class="card-info">
                   <h3>
                     ${park.name} ${flagHtml} 
-                    ${park.visitCount ? `<span class="visit-badge">🎟️ ${park.visitCount}</span>` : ""}
+                    ${park.visitCount ? `<span class="visit-badge">🎟️ Nº Visitas: ${park.visitCount}</span>` : ""}
                   </h3>
                 </div>
             </div>
@@ -415,7 +415,7 @@ function renderParkList() {
                 <div class="card-info">
                   <h3>
                     ${park.name} 
-                    ${park.visitCount ? `<span class="visit-badge">🎟️ ${park.visitCount}</span>` : ""}
+                    ${park.visitCount ? `<span class="visit-badge">🎟️ Nº Visitas: ${park.visitCount}</span>` : ""}
                   </h3>
                 </div>
             </div>

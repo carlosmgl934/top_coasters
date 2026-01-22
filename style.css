@@ -647,54 +647,61 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 20px; /* More space between elements */
-  background: rgba(255, 255, 255, 0.03);
-  padding: 12px;
-  border-radius: 16px;
-  margin-top: 5px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 25px; /* More breathing room */
+  background: rgba(0, 0, 0, 0.2); /* Darker background for contrast */
+  padding: 12px 20px;
+  border-radius: 20px;
+  margin-top: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .stepper-btn {
-  width: 48px; /* Larger */
-  height: 48px; /* Larger */
-  border-radius: 50%; /* Force circle */
+  width: 54px; /* Even larger */
+  height: 54px; /* Perfectly circular */
+  flex-shrink: 0; /* CRITICAL: Prevent oval deformation */
+  border-radius: 50%;
   border: none;
   background: #5e6ad2;
   color: white;
   font-size: 24px;
   font-weight: 700;
   cursor: pointer;
-  display: flex; /* Flex required for centering */
+  display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-  padding: 0; /* Important: remove padding to let flex center it */
-  line-height: normal; /* Reset line-height */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  padding: 0;
 }
 
 .stepper-btn:hover {
   background: #6c7ae0;
-  transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 6px 12px rgba(94, 106, 210, 0.4);
+  transform: scale(1.1);
+  box-shadow: 0 6px 15px rgba(94, 106, 210, 0.4);
 }
 
 .stepper-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.9);
 }
 
 .stepper-input {
-  width: 50px; /* Narrower input */
+  width: 40px; /* Much narrower as requested */
   text-align: center;
-  background: transparent;
-  border: none;
+  background: rgba(255, 255, 255, 0.05); /* Subtile box for the number */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px 0;
   color: white;
-  font-size: 28px; /* Bigger number */
-  font-weight: 700;
-  font-family: monospace;
+  font-size: 28px;
+  font-weight: 800;
+  font-family: "Outfit", sans-serif;
   appearance: textfield;
   -moz-appearance: textfield;
+}
+
+.stepper-input::-webkit-outer-spin-button,
+.stepper-input::-webkit-inner-spin-button {
+  display: none;
 }
 
 .stepper-input::-webkit-outer-spin-button,
