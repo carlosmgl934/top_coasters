@@ -641,3 +641,78 @@ body {
 .mfg-item-btn.delete:hover {
   background: rgba(255, 71, 87, 0.4);
 }
+
+/* Stepper Control */
+.stepper-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px; /* More space between elements */
+  background: rgba(255, 255, 255, 0.03);
+  padding: 12px;
+  border-radius: 16px;
+  margin-top: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stepper-btn {
+  width: 48px; /* Larger */
+  height: 48px; /* Larger */
+  border-radius: 50%; /* Force circle */
+  border: none;
+  background: #5e6ad2;
+  color: white;
+  font-size: 24px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex; /* Flex required for centering */
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  padding: 0; /* Important: remove padding to let flex center it */
+  line-height: normal; /* Reset line-height */
+}
+
+.stepper-btn:hover {
+  background: #6c7ae0;
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 6px 12px rgba(94, 106, 210, 0.4);
+}
+
+.stepper-btn:active {
+  transform: scale(0.95);
+}
+
+.stepper-input {
+  width: 50px; /* Narrower input */
+  text-align: center;
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 28px; /* Bigger number */
+  font-weight: 700;
+  font-family: monospace;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.stepper-input::-webkit-outer-spin-button,
+.stepper-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Visit Badge in Park Card */
+.visit-badge {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: middle;
+}

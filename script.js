@@ -394,7 +394,12 @@ function renderParkList() {
                 ${isSelected ? "✔" : ""}
             </div>
             <div class="card-content">
-                <div class="card-info"><h3>${park.name} ${flagHtml}</h3></div>
+                <div class="card-info">
+                  <h3>
+                    ${park.name} ${flagHtml} 
+                    ${park.visitCount ? `<span class="visit-badge">🎟️ ${park.visitCount}</span>` : ""}
+                  </h3>
+                </div>
             </div>
         `;
       card.onclick = () => toggleSelection(park.name);
@@ -408,7 +413,10 @@ function renderParkList() {
             ${reorderControls}
             <div class="card-content">
                 <div class="card-info">
-                    <h3>${park.name}</h3>
+                  <h3>
+                    ${park.name} 
+                    ${park.visitCount ? `<span class="visit-badge">🎟️ ${park.visitCount}</span>` : ""}
+                  </h3>
                 </div>
             </div>
         `;
@@ -657,6 +665,8 @@ function setupEventListeners() {
     const mfg = dom.inputs.mfg.value;
     const photo = dom.photoPreview.dataset.tempSrc || null;
     const rankInput = document.getElementById("input-rank").value;
+    const rideCount =
+      parseInt(document.getElementById("input-ride-count").value) || 0;
     const coasterCountry =
       document.getElementById("coaster-country").value || null;
 
@@ -670,6 +680,7 @@ function setupEventListeners() {
         coaster.height = height;
         coaster.park = park;
         coaster.mfg = mfg;
+        coaster.rideCount = rideCount;
         coaster.country = coasterCountry;
         if (photo) coaster.photo = photo;
 
@@ -683,6 +694,7 @@ function setupEventListeners() {
         park,
         mfg,
         photo,
+        rideCount,
         country: coasterCountry,
       };
       await handleRankUpdate("coasters", newCoaster, targetRank, true);
@@ -698,6 +710,8 @@ function setupEventListeners() {
     e.preventDefault();
     const name = dom.parkName.value;
     const country = dom.inputs.parkCountry.value;
+    const visitCount =
+      parseInt(document.getElementById("input-visit-count").value) || 0;
     const rankInput = document.getElementById("park-rank").value;
     let targetRank = rankInput ? parseInt(rankInput) : null;
 
@@ -706,6 +720,7 @@ function setupEventListeners() {
       const park = state.parks.find((p) => p.name === state.editingPark);
       if (park) {
         park.country = country;
+        park.visitCount = visitCount;
         await handleRankUpdate("parks", park, targetRank);
       }
     } else {
@@ -714,7 +729,7 @@ function setupEventListeners() {
         alert("¡El parque ya existe!");
         return;
       }
-      const newPark = { name, country };
+      const newPark = { name, country, visitCount };
       await handleRankUpdate("parks", newPark, targetRank, true);
     }
 
@@ -1070,6 +1085,7 @@ window.editCoaster = (id) => {
   dom.inputs.park.value = coaster.park;
   dom.inputs.mfg.value = coaster.mfg;
   document.getElementById("input-rank").value = coaster.rank;
+  document.getElementById("input-ride-count").value = coaster.rideCount || 0;
 
   // Handle coaster country if park is "Otro"
   const countryGroup = document.getElementById("coaster-country-group");
@@ -1183,3 +1199,12 @@ async function handleRankUpdate(storeName, item, targetRank, isNew = false) {
 
   await new Promise((r) => (tx.oncomplete = r));
 }
+
+// Global Stepper Helper
+window.updateStepper = (inputId, change) => {
+  const input = document.getElementById(inputId);
+  let val = parseInt(input.value) || 0;
+  val += change;
+  if (val < 0) val = 0;
+  input.value = val;
+};

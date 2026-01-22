@@ -107,8 +107,9 @@
               <input type="file" id="photo-input" accept="image/*" hidden />
             </div>
 
+            <!-- 1. NAME -->
             <div class="form-group">
-              <label>Nombre</label>
+              <label>Nombre de la Coaster</label>
               <input
                 type="text"
                 id="input-name"
@@ -118,6 +119,36 @@
               />
             </div>
 
+            <!-- 2. PARK -->
+            <div class="form-group">
+              <label>Parque</label>
+              <select id="input-park" required>
+                <option value="" disabled selected> Selecciona un Parque... </option>
+              </select>
+            </div>
+
+            <!-- 3. RIDE COUNT (PROMINENT) -->
+            <div class="form-group">
+              <label>Veces Montada</label>
+              <div class="stepper-control">
+                <button type="button" class="stepper-btn" onclick="updateStepper('input-ride-count', -1)">-</button>
+                <input type="number" id="input-ride-count" class="stepper-input" value="0" min="0">
+                <button type="button" class="stepper-btn" onclick="updateStepper('input-ride-count', 1)">+</button>
+              </div>
+            </div>
+
+            <!-- 4. MANUFACTURER -->
+            <div class="form-group">
+              <label>Manufacturadora</label>
+              <div class="autocomplete-wrapper">
+                <select id="input-mfg" required>
+                  <option value="" disabled selected> Selecciona Manufacturadora... </option>
+                  <option value="new">+ Crear Nueva...</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 5. HEIGHT -->
             <div class="form-group">
               <label>Altura (m) <small>(OPCIONAL)</small></label>
               <input
@@ -129,34 +160,7 @@
               />
             </div>
 
-            <div class="form-group">
-              <label>Parque</label>
-              <select id="input-park" required>
-                <option value="" disabled selected>
-                  Selecciona un Parque...
-                </option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label>Manufacturadora</label>
-              <div class="autocomplete-wrapper">
-                <!-- Keeping Mfg as text/datalist or select? User said "select con parques y manufacturadora". Let's try select for both but allow 'add new' via a clear button if needed, or just require them to exist. 
-                             Actually, user said "cogerlo de ahi, de los ya creados".
-                             Let's make both Selects. But we need a way to create Manufacturers since we don't have a 'Manufacturers' tab yet (only Parks Top). 
-                             I'll stick to Select for uniformity as requested. -->
-                <!-- <input type="text" id="input-mfg" placeholder="Ej: B&M" list="mfg-list" autocomplete="off"> 
-                                 Changing to Select below -->
-                <select id="input-mfg" required>
-                  <option value="" disabled selected>
-                    Selecciona Manufacturadora...
-                  </option>
-                  <option value="new">+ Crear Nueva...</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- Coaster Country (only for "Otro" park) -->
+            <!-- 6. COUNTRY (Conditional for 'Otro') -->
             <div class="form-group" id="coaster-country-group" style="display: none;">
               <label>País de la Coaster</label>
               <small>Solo para coasters sin parque específico</small>
@@ -165,7 +169,7 @@
               </select>
             </div>
             
-            <!-- Rank Input (Optional) -->
+            <!-- 7. RANK (Optional) -->
             <div class="form-group">
               <label>Posición en Top (Opcional)</label>
               <small>Coloca la coaster directamente en la posición que deseas</small>
@@ -205,6 +209,15 @@
             <div class="form-group">
               <label>Posición en Top (Opcional)</label>
               <input type="number" id="park-rank" placeholder="Ej: 1" min="1" />
+            </div>
+
+            <div class="form-group">
+              <label>Visitas al Parque</label>
+               <div class="stepper-control">
+                <button type="button" class="stepper-btn" onclick="updateStepper('input-visit-count', -1)">-</button>
+                <input type="number" id="input-visit-count" class="stepper-input" value="0" min="0">
+                <button type="button" class="stepper-btn" onclick="updateStepper('input-visit-count', 1)">+</button>
+              </div>
             </div>
 
             <div class="form-actions">
