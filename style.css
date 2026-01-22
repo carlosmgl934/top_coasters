@@ -286,6 +286,20 @@ body {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
+.badges-wrapper {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  display: flex;
+  gap: 8px;
+}
+
+.badges-wrapper .rank-badge {
+  position: static; /* Allow flex layout */
+  margin: 0;
+}
+
 .rank-badge.rank-1 {
   background: linear-gradient(135deg, #ffd700, #fdb931);
   color: #000;
@@ -712,14 +726,16 @@ body {
 
 /* Visit Badge in Park Card */
 .visit-badge {
-  background: rgba(255, 255, 255, 0.15);
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
-  margin-left: 8px;
+  background: rgba(0, 0, 0, 0.4); /* Darker for contrast against yellow/bg */
+  backdrop-filter: blur(4px);
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  vertical-align: middle;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }

@@ -395,10 +395,8 @@ function renderParkList() {
             </div>
             <div class="card-content">
                 <div class="card-info">
-                  <h3>
-                    ${park.name} ${flagHtml} 
-                    ${park.visitCount ? `<span class="visit-badge">🎟️ Nº Visitas: ${park.visitCount}</span>` : ""}
-                  </h3>
+                  <h3>${park.name} ${flagHtml}</h3>
+                  ${park.visitCount ? `<span class="visit-badge" style="margin-top: 5px;">🎟️ Nº Visitas: ${park.visitCount}</span>` : ""}
                 </div>
             </div>
         `;
@@ -409,13 +407,17 @@ function renderParkList() {
 
       card.innerHTML = `
             ${bgStyle}
-            <div class="rank-badge ${rankClass}">${flagHtml} #${index + 1}</div>
+            <div class="badges-wrapper">
+                <div class="rank-badge ${rankClass}">
+                    ${flagHtml} #${index + 1}
+                </div>
+                ${park.visitCount ? `<span class="visit-badge">🎟️ Nº Visitas: ${park.visitCount}</span>` : ""}
+            </div>
             ${reorderControls}
             <div class="card-content">
                 <div class="card-info">
                   <h3>
                     ${park.name} 
-                    ${park.visitCount ? `<span class="visit-badge">🎟️ Nº Visitas: ${park.visitCount}</span>` : ""}
                   </h3>
                 </div>
             </div>
@@ -531,6 +533,10 @@ window.editPark = (name) => {
   if (park.country) {
     dom.inputs.parkCountry.value = park.country;
   }
+
+  // Populate Rank and Visits
+  document.getElementById("park-rank").value = park.rank;
+  document.getElementById("input-visit-count").value = park.visitCount || 0;
 };
 
 // --- Event Listeners ---
