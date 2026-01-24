@@ -42,6 +42,10 @@ const countryFlags = {
   AE: "🇦🇪",
   PL: "🇵🇱",
   PT: "🇵🇹",
+  NO: "🇳🇴",
+  FI: "🇫🇮",
+  DK: "🇩🇰",
+  AT: "🇦🇹",
   OTHER: "🌍",
 };
 
@@ -361,6 +365,55 @@ function renderCoasterList() {
             </div>
         `;
       card.onclick = () => editCoaster(coaster.id);
+
+      // Enable Drag & Drop for reordering (only when no filters and in rank mode)
+      if (
+        state.sortBy === "rank" &&
+        !state.filterPark &&
+        !state.filterMfg &&
+        !state.filterCountry
+      ) {
+        card.draggable = true;
+        card.classList.add("draggable");
+
+        card.ondragstart = (e) => {
+          e.stopPropagation();
+          card.classList.add("dragging");
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", index.toString());
+        };
+
+        card.ondragover = (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          card.classList.add("drag-over");
+        };
+
+        card.ondragleave = (e) => {
+          card.classList.remove("drag-over");
+        };
+
+        card.ondrop = async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          card.classList.remove("drag-over");
+
+          const fromIndex = parseInt(e.dataTransfer.getData("text/plain"));
+          const toIndex = index;
+
+          if (fromIndex !== toIndex) {
+            await handleDragDrop(fromIndex, toIndex);
+          }
+        };
+
+        card.ondragend = (e) => {
+          card.classList.remove("dragging");
+          // Clean up all drag-over classes
+          document.querySelectorAll(".drag-over").forEach((el) => {
+            el.classList.remove("drag-over");
+          });
+        };
+      }
     }
     dom.views.coasters.appendChild(card);
   });
@@ -480,7 +533,7 @@ window.deleteItem = async (id, storeName) => {
   renderApp();
 };
 
-// Global Move Item
+// Global Move Item - OPTIMIZED: Only updates 2 items instead of all
 window.moveItem = async (e, index, direction) => {
   if (e) e.stopPropagation();
   const list = state.view === "coasters" ? state.coasters : state.parks;
@@ -491,20 +544,21 @@ window.moveItem = async (e, index, direction) => {
 
   const newIndex = index + direction;
 
-  // Swap
+  // Swap in memory
   const temp = list[index];
   list[index] = list[newIndex];
   list[newIndex] = temp;
 
-  // Update DB
+  // Update ranks for ONLY the two swapped items
+  list[index].rank = index + 1;
+  list[newIndex].rank = newIndex + 1;
+
+  // Update DB - ONLY 2 operations instead of 169!
   const tx = db.transaction(storeName, "readwrite");
   const store = tx.objectStore(storeName);
 
-  for (let i = 0; i < list.length; i++) {
-    const item = list[i];
-    item.rank = i + 1;
-    store.put(item);
-  }
+  store.put(list[index]);
+  store.put(list[newIndex]);
 
   await new Promise((r) => (tx.oncomplete = r));
   renderApp();
@@ -1178,32 +1232,79 @@ async function handleRankUpdate(storeName, item, targetRank, isNew = false) {
   // Identify key
   const keyProp = storeName === "coasters" ? "id" : "name";
 
-  // Filter out the item if it exists (for Edit case) to simulate finding the slot
-  // For Coasters we use ID (int), for Parks Name (string)
-  let cleanList = isNew
-    ? [...list]
-    : list.filter((i) => i[keyProp] !== item[keyProp]);
+  // Find current position (if editing)
+  const currentIndex = !isNew
+    ? list.findIndex((i) => i[keyProp] === item[keyProp])
+    : -1;
+  const targetIndex = targetRank - 1;
 
-  // Insert at index
-  const index = targetRank - 1;
-  // If index > length, just push
-  if (index >= cleanList.length) {
-    cleanList.push(item);
-  } else {
-    cleanList.splice(index, 0, item);
-  }
-
-  // Re-save all with new ranks
+  // OPTIMIZATION: Only update affected items
   const tx = db.transaction(storeName, "readwrite");
   const store = tx.objectStore(storeName);
 
-  for (let i = 0; i < cleanList.length; i++) {
-    let obj = cleanList[i];
-    obj.rank = i + 1;
-    store.put(obj);
+  if (isNew) {
+    // New item: shift down items from targetRank onwards
+    item.rank = targetRank;
+    store.put(item);
+
+    // Only update items that need to shift down
+    for (let i = targetIndex; i < list.length; i++) {
+      if (list[i].rank >= targetRank) {
+        list[i].rank++;
+        store.put(list[i]);
+      }
+    }
+  } else {
+    // Editing existing: update item rank
+    item.rank = targetRank;
+    store.put(item);
+
+    // Only update items between old and new position
+    if (currentIndex !== -1 && currentIndex !== targetIndex) {
+      const start = Math.min(currentIndex, targetIndex);
+      const end = Math.max(currentIndex, targetIndex);
+
+      for (let i = start; i <= end; i++) {
+        if (i !== currentIndex) {
+          const adjustedRank = i < targetIndex ? i + 1 : i + 2;
+          if (list[i].rank !== adjustedRank) {
+            list[i].rank = adjustedRank;
+            store.put(list[i]);
+          }
+        }
+      }
+    }
   }
 
   await new Promise((r) => (tx.oncomplete = r));
+}
+
+// Global Drag & Drop Handler
+async function handleDragDrop(fromIndex, toIndex) {
+  const list = state.view === "coasters" ? state.coasters : state.parks;
+  const storeName = state.view;
+
+  // Remove item from old position
+  const [movedItem] = list.splice(fromIndex, 1);
+
+  // Insert at new position
+  list.splice(toIndex, 0, movedItem);
+
+  // Update ranks for affected items only
+  const tx = db.transaction(storeName, "readwrite");
+  const store = tx.objectStore(storeName);
+
+  const start = Math.min(fromIndex, toIndex);
+  const end = Math.max(fromIndex, toIndex);
+
+  // Only update items between old and new position
+  for (let i = start; i <= end; i++) {
+    list[i].rank = i + 1;
+    store.put(list[i]);
+  }
+
+  await new Promise((r) => (tx.oncomplete = r));
+  renderApp();
 }
 
 // Global Stepper Helper
