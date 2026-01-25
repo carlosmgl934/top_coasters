@@ -1488,7 +1488,7 @@ async function handleRankUpdate(storeName, item, targetRank, isNew = false) {
     renderApp();
   }
 }
-*/
+// function handleDragDrop(fromIndex, toIndex) { ... }
 
 function updateRankBadge(card, newRank) {
   const badge = card.querySelector(".rank-badge");
@@ -1513,36 +1513,7 @@ function updateRankStyles(card, rank) {
   }
 }
 
-// Spotify-style Drag & Drop Helpers
-/*
-function updateDragPlaceholder(fromIndex, toIndex) {
-  // Use requestAnimationFrame for smoother updates
-  requestAnimationFrame(() => {
-    const cards = document.querySelectorAll(".coaster-card:not(.dragging)");
-
-    cards.forEach((card) => {
-      const cardIndex = parseInt(card.dataset.dragIndex);
-      if (isNaN(cardIndex)) return;
-
-      // Reset transform
-      card.style.transform = "";
-
-      // Shift cards
-      if (fromIndex < toIndex) {
-        // Dragging down
-        if (cardIndex > fromIndex && cardIndex <= toIndex) {
-          card.style.transform = "translateY(-176px)";
-        }
-      } else if (fromIndex > toIndex) {
-        // Dragging up
-        if (cardIndex >= toIndex && cardIndex < fromIndex) {
-          card.style.transform = "translateY(176px)";
-        }
-      }
-    });
-  });
-}
-*/
+// function updateDragPlaceholder(fromIndex, toIndex) { ... }
 
 function handleAutoScroll(e) {
   const container = document.querySelector(".content-area");
