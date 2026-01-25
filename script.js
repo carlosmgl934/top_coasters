@@ -1418,77 +1418,7 @@ async function handleRankUpdate(storeName, item, targetRank, isNew = false) {
   await new Promise((r) => (tx.oncomplete = r));
 }
 
-// Global Drag & Drop Handler
-// async function handleDragDrop(fromIndex, toIndex) {
-  const list = state.view === "coasters" ? state.coasters : state.parks;
-  const storeName = state.view;
-
-  // Remove item from old position
-  const [movedItem] = list.splice(fromIndex, 1);
-
-  // Insert at new position
-  list.splice(toIndex, 0, movedItem);
-
-  // Update ranks for affected items only
-  const tx = db.transaction(storeName, "readwrite");
-  const store = tx.objectStore(storeName);
-
-  const start = Math.min(fromIndex, toIndex);
-  const end = Math.max(fromIndex, toIndex);
-
-  // Only update items between old and new position
-  for (let i = start; i <= end; i++) {
-    list[i].rank = i + 1;
-    store.put(list[i]);
-  }
-
-  await new Promise((r) => (tx.oncomplete = r));
-
-  // OPTIMIZED RENDER: Swap DOM elements directly instead of full re-render
-  // This makes it instant even with 169+ items
-  if (
-    state.view === "coasters" &&
-    state.sortBy === "rank" &&
-    !state.filterPark &&
-    !state.filterMfg &&
-    !state.filterCountry
-  ) {
-    const container = dom.views.coasters;
-    // children[index] corresponds to current state before memory swap?
-    // No, we already swapped memory. list[index] is the item that WAS at newIndex.
-    // But DOM is NOT swapped yet. DOM children[index] is the item that WAS at index.
-
-    const domItem1 = container.children[fromIndex];
-    const domItem2 = container.children[toIndex];
-
-    // Determine direction of movement
-    const direction = fromIndex < toIndex ? 1 : -1;
-
-    // Swap visuals (Classes for rank colors might change if moving in/out of top 3)
-    const rank1 = fromIndex + 1;
-    const rank2 = toIndex + 1;
-
-    // Update badges text
-    updateRankBadge(domItem1, rank2); // domItem1 moves to newIndex (rank2)
-    updateRankBadge(domItem2, rank1); // domItem2 moves to index (rank1)
-
-    // Swap DOM positions
-    // If moving down (direction 1): domItem1 goes after domItem2
-    // If moving up (direction -1): domItem1 goes before domItem2
-    if (direction === 1) {
-      container.insertBefore(domItem1, domItem2.nextElementSibling);
-    } else {
-      container.insertBefore(domItem1, domItem2);
-    }
-
-    // Update styles (Top 3 highlighting)
-    updateRankStyles(domItem1, rank2);
-    updateRankStyles(domItem2, rank1);
-  } else {
-    renderApp();
-  }
-}
-// function handleDragDrop(fromIndex, toIndex) { ... }
+// Legacy handleDragDrop function removed - replaced by saveNewOrderFromDOM
 
 function updateRankBadge(card, newRank) {
   const badge = card.querySelector(".rank-badge");
