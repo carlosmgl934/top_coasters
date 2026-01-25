@@ -97,7 +97,6 @@ const dom = {
 };
 
 // --- Init ---
-// --- Init ---
 async function init() {
   await initDB();
   await loadData();
