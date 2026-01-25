@@ -1486,62 +1486,6 @@ function cleanupDragState() {
   state.dragState = null;
 }
 
-// Container Drop Handler (to catch drops between cards)
-function setupContainerDrop() {
-  const container = dom.views.coasters;
-
-  container.ondragover = (e) => {
-    e.preventDefault();
-    if (!state.dragState) return;
-
-    // Find closest card based on Y
-    const cards = Array.from(
-      container.querySelectorAll(".coaster-card:not(.dragging)"),
-    );
-    const mouseY = e.clientY;
-
-    let closestCard = null;
-    let minDist = Infinity;
-
-    cards.forEach((card) => {
-      const rect = card.getBoundingClientRect();
-      const cardMidY = rect.top + rect.height / 2;
-      const dist = Math.abs(mouseY - cardMidY);
-      if (dist < minDist) {
-        minDist = dist;
-        closestCard = card;
-      }
-    });
-
-    if (closestCard) {
-      const targetIndex = parseInt(closestCard.dataset.dragIndex);
-      if (
-        !isNaN(targetIndex) &&
-        state.dragState.currentHoverIndex !== targetIndex
-      ) {
-        updateDragPlaceholder(state.dragState.fromIndex, targetIndex);
-        state.dragState.currentHoverIndex = targetIndex;
-      }
-    }
-
-    handleAutoScroll(e);
-  };
-
-  container.ondrop = (e) => {
-    e.preventDefault();
-    // The card.ondrop handles the actual logic if dropped on card
-    // If dropped on container gap, we rely on the last known currentHoverIndex
-    if (state.dragState && e.target === container) {
-      const fromIndex = state.dragState.fromIndex;
-      const toIndex = state.dragState.currentHoverIndex;
-      if (fromIndex !== toIndex) {
-        handleDragDrop(fromIndex, toIndex);
-      }
-      cleanupDragState();
-    }
-  };
-}
-
 // Global Stepper Helper
 window.updateStepper = (inputId, change) => {
   const input = document.getElementById(inputId);
