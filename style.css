@@ -512,20 +512,34 @@ body {
 }
 
 .coaster-card.dragging {
-  opacity: 0.4;
+  opacity: 0.9; /* More visible based on feedback */
   border: 2px solid var(--primary);
-  transform: scale(0.95);
-}
-
-.coaster-card.drag-over {
-  border: 2px dashed var(--primary);
-  background: rgba(94, 106, 210, 0.1);
-  transform: scale(1.02);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  /* scaling removed as requested */
 }
 
 .coaster-card.drag-placeholder {
-  margin-top: 176px; /* height + gap */
-  transition: margin-top 0.3s cubic-bezier(0.2, 0, 0, 1);
+  /* Used for the gap */
+  opacity: 0;
+  margin: 0;
+  pointer-events: none;
+}
+
+/* This class is applied to the items shifting to make room */
+.coaster-card.shift-down {
+  transform: translateY(176px); /* card height + gap */
+}
+
+.coaster-card.shift-up {
+  transform: translateY(-176px);
+}
+
+.coaster-card {
+  /* Ensure transitions are smooth */
+  transition:
+    transform 0.2s cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 0.2s;
 }
 
 /* Delete Btn */

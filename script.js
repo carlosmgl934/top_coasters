@@ -378,66 +378,184 @@ function renderCoasterList() {
       ) {
         card.draggable = true;
         card.classList.add("draggable");
-        card.dataset.dragIndex = index;
+        card.dataset.id = coaster.id; // Ensure ID is accessible
 
+        // Clean Drag Start
         card.ondragstart = (e) => {
-          e.stopPropagation();
-          card.classList.add("dragging");
-          e.dataTransfer.effectAllowed = "move";
-          e.dataTransfer.setData("text/plain", index.toString());
+          // e.stopPropagation(); // Let it bubble to container? No, we handle specifically.
 
-          // Store drag state
           state.dragState = {
-            fromIndex: index,
-            currentHoverIndex: index,
+            draggedId: coaster.id,
+            originalIndex: index,
             scrollInterval: null,
           };
-        };
 
-        card.ondragover = (e) => {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = "move";
+          // Delay adding class to allow drag image to be created from original element
+          setTimeout(() => card.classList.add("dragging"), 0);
 
-          const targetIndex = parseInt(card.dataset.dragIndex);
-
-          // Update placeholder position if hovering over different card
-          if (
-            state.dragState &&
-            state.dragState.currentHoverIndex !== targetIndex
-          ) {
-            updateDragPlaceholder(state.dragState.fromIndex, targetIndex);
-            state.dragState.currentHoverIndex = targetIndex;
-          }
-
-          // Auto-scroll logic
-          handleAutoScroll(e);
-        };
-
-        card.ondragleave = (e) => {
-          // Don't remove on simple mouse movements
-        };
-
-        card.ondrop = async (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-
-          const fromIndex = parseInt(e.dataTransfer.getData("text/plain"));
-          const toIndex = parseInt(card.dataset.dragIndex);
-
-          if (fromIndex !== toIndex) {
-            await handleDragDrop(fromIndex, toIndex);
-          }
-
-          cleanupDragState();
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", coaster.id);
         };
 
         card.ondragend = (e) => {
+          card.classList.remove("dragging");
           cleanupDragState();
+
+          // Force a reload to ensure consistent state
+          // Or we can trust our DOM manipulation + Rank Update
+          // renderApp(); // Optional: might be jarring, try avoid it
         };
+
+        // Remove individual dragover listeners - we will use container level
+        card.ondragover = null;
+        card.ondragleave = null;
+        card.ondrop = null;
       }
     }
+
+    // Add spacer at bottom to make dropping at end easier
+    // dom.views.coasters.appendChild(document.createElement('div')).style.height = "50px";
     dom.views.coasters.appendChild(card);
   });
+}
+
+// --- CONTAINER LEVEL DRAG HANDLER (Robust) ---
+function setupContainerDrop() {
+  const container = dom.views.coasters;
+  let placeholder = document.createElement("div");
+  placeholder.className = "coaster-card drag-placeholder";
+  placeholder.style.height = "160px"; // Match card height
+  placeholder.style.background = "rgba(255, 255, 255, 0.05)";
+  placeholder.style.borderRadius = "16px";
+  placeholder.style.border = "2px dashed #5e6ad2";
+  placeholder.style.marginBottom = "16px";
+
+  container.ondragover = (e) => {
+    e.preventDefault();
+    if (!state.dragState) return;
+
+    // Auto Scroll
+    handleAutoScroll(e);
+
+    const draggingCard = document.querySelector(".dragging");
+    if (!draggingCard) return;
+
+    // Find closest sibling
+    const afterElement = getDragAfterElement(container, e.clientY);
+
+    if (afterElement == null) {
+      container.appendChild(placeholder);
+    } else {
+      container.insertBefore(placeholder, afterElement);
+    }
+  };
+
+  container.ondrop = async (e) => {
+    e.preventDefault();
+    if (!state.dragState) return;
+
+    const draggingCard = document.querySelector(".dragging");
+    if (!draggingCard) {
+      cleanupDragState();
+      return;
+    }
+
+    // Replace placeholder with the actual card
+    container.insertBefore(draggingCard, placeholder);
+    placeholder.remove(); // Remove placeholder
+    draggingCard.classList.remove("dragging");
+
+    // Now calculate new order based on DOM
+    await saveNewOrderFromDOM();
+    cleanupDragState();
+  };
+}
+
+// Helper to calculate position
+function getDragAfterElement(container, y) {
+  // Get all draggable elements except the one being dragged and the placeholder
+  const draggableElements = [
+    ...container.querySelectorAll(
+      ".coaster-card.draggable:not(.dragging):not(.drag-placeholder)",
+    ),
+  ];
+
+  return draggableElements.reduce(
+    (closest, child) => {
+      const box = child.getBoundingClientRect();
+      // Calculate offset from center of box
+      const offset = y - box.top - box.height / 2;
+
+      // We want the element where we are ABOVE its center (negative offset)
+      // and closest to 0
+      if (offset < 0 && offset > closest.offset) {
+        return { offset: offset, element: child };
+      } else {
+        return closest;
+      }
+    },
+    { offset: Number.NEGATIVE_INFINITY },
+  ).element;
+}
+
+// Function to save the new order based on current DOM state
+async function saveNewOrderFromDOM() {
+  const container = dom.views.coasters;
+  const cards = Array.from(
+    container.querySelectorAll(".coaster-card.draggable"),
+  );
+
+  // Create a map for Rank 1..N
+  const storeName = "coasters";
+  const tx = db.transaction(storeName, "readwrite");
+  const store = tx.objectStore(storeName);
+
+  // Update local state first to match visual
+  const newCoastersOrder = [];
+
+  for (let i = 0; i < cards.length; i++) {
+    const card = cards[i];
+    const id = parseInt(card.dataset.id);
+    const item = state.coasters.find((c) => c.id === id);
+
+    if (item) {
+      // Update Rank
+      item.rank = i + 1;
+
+      // Queue DB update
+      store.put(item);
+
+      // Add to new list
+      newCoastersOrder.push(item);
+
+      // Visual badge update (instant)
+      const badge = card.querySelector(".rank-badge");
+      if (badge) {
+        const flag = badge.querySelector(".flag-pop");
+        const flagHTML = flag ? flag.outerHTML : "";
+        badge.innerHTML = `${flagHTML} #${item.rank}`;
+
+        // Update visual rank style
+        badge.classList.remove("rank-1", "rank-2", "rank-3");
+        if (item.rank <= 3) badge.classList.add(`rank-${item.rank}`);
+      }
+    }
+  }
+
+  // Update State
+  state.coasters = newCoastersOrder;
+  state.coasters.sort((a, b) => a.rank - b.rank);
+
+  await new Promise((r) => (tx.oncomplete = r));
+  // No need to renderApp() because DOM is already correct!
+}
+
+async function handleDragDrop(fromIndex, toIndex) {
+  // Legacy function - kept for safety but unused in new logic
+}
+
+function updateDragPlaceholder(fromIndex, toIndex) {
+  // Removed - unused in new logic
 }
 
 function renderParkList() {
@@ -1301,7 +1419,7 @@ async function handleRankUpdate(storeName, item, targetRank, isNew = false) {
 }
 
 // Global Drag & Drop Handler
-async function handleDragDrop(fromIndex, toIndex) {
+// async function handleDragDrop(fromIndex, toIndex) {
   const list = state.view === "coasters" ? state.coasters : state.parks;
   const storeName = state.view;
 
@@ -1370,6 +1488,7 @@ async function handleDragDrop(fromIndex, toIndex) {
     renderApp();
   }
 }
+*/
 
 function updateRankBadge(card, newRank) {
   const badge = card.querySelector(".rank-badge");
@@ -1395,6 +1514,7 @@ function updateRankStyles(card, rank) {
 }
 
 // Spotify-style Drag & Drop Helpers
+/*
 function updateDragPlaceholder(fromIndex, toIndex) {
   // Use requestAnimationFrame for smoother updates
   requestAnimationFrame(() => {
@@ -1422,6 +1542,7 @@ function updateDragPlaceholder(fromIndex, toIndex) {
     });
   });
 }
+*/
 
 function handleAutoScroll(e) {
   const container = document.querySelector(".content-area");
