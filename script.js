@@ -22,6 +22,7 @@ const state = {
   editingPark: null,
   editingCoaster: null,
   isMiniView: false, // New: Toggle for compact view
+  dragState: null, // Tracks active drag operations
 };
 
 let cropper; // Global cropper instance
@@ -375,43 +376,61 @@ function renderCoasterList() {
       ) {
         card.draggable = true;
         card.classList.add("draggable");
+        card.dataset.dragIndex = index;
 
         card.ondragstart = (e) => {
           e.stopPropagation();
           card.classList.add("dragging");
           e.dataTransfer.effectAllowed = "move";
           e.dataTransfer.setData("text/plain", index.toString());
+
+          // Store drag state
+          state.dragState = {
+            fromIndex: index,
+            currentHoverIndex: index,
+            scrollInterval: null,
+          };
         };
 
         card.ondragover = (e) => {
           e.preventDefault();
           e.dataTransfer.dropEffect = "move";
-          card.classList.add("drag-over");
+
+          const targetIndex = parseInt(card.dataset.dragIndex);
+
+          // Update placeholder position if hovering over different card
+          if (
+            state.dragState &&
+            state.dragState.currentHoverIndex !== targetIndex
+          ) {
+            updateDragPlaceholder(state.dragState.fromIndex, targetIndex);
+            state.dragState.currentHoverIndex = targetIndex;
+          }
+
+          // Auto-scroll logic
+          handleAutoScroll(e);
         };
 
         card.ondragleave = (e) => {
-          card.classList.remove("drag-over");
+          // Don't remove on simple mouse movements
         };
 
         card.ondrop = async (e) => {
           e.preventDefault();
           e.stopPropagation();
-          card.classList.remove("drag-over");
 
           const fromIndex = parseInt(e.dataTransfer.getData("text/plain"));
-          const toIndex = index;
+          const toIndex = parseInt(card.dataset.dragIndex);
 
           if (fromIndex !== toIndex) {
             await handleDragDrop(fromIndex, toIndex);
           }
+
+          cleanupDragState();
         };
 
         card.ondragend = (e) => {
-          card.classList.remove("dragging");
-          // Clean up all drag-over classes
-          document.querySelectorAll(".drag-over").forEach((el) => {
-            el.classList.remove("drag-over");
-          });
+          cleanupDragState();
         };
       }
     }
@@ -1305,6 +1324,84 @@ async function handleDragDrop(fromIndex, toIndex) {
 
   await new Promise((r) => (tx.oncomplete = r));
   renderApp();
+}
+
+// Spotify-style Drag & Drop Helpers
+function updateDragPlaceholder(fromIndex, toIndex) {
+  const cards = document.querySelectorAll(".coaster-card:not(.dragging)");
+
+  cards.forEach((card, visualIndex) => {
+    const cardIndex = parseInt(card.dataset.dragIndex);
+    if (cardIndex === undefined) return;
+
+    // Remove any existing placeholder classes
+    card.classList.remove("drag-placeholder");
+    card.style.transform = "";
+
+    // Shift cards to make space for drop
+    if (fromIndex < toIndex) {
+      // Dragging down: shift cards up
+      if (cardIndex > fromIndex && cardIndex <= toIndex) {
+        card.style.transform = "translateY(-176px)"; // -(height + gap)
+      }
+    } else if (fromIndex > toIndex) {
+      // Dragging up: shift cards down
+      if (cardIndex >= toIndex && cardIndex < fromIndex) {
+        card.style.transform = "translateY(176px)"; // height + gap
+      }
+    }
+  });
+}
+
+function handleAutoScroll(e) {
+  const container = document.querySelector(".content-area");
+  if (!container) return;
+
+  const scrollThreshold = 80; // Distance from edge to trigger scroll
+  const scrollSpeed = 10;
+  const rect = container.getBoundingClientRect();
+  const mouseY = e.clientY;
+
+  // Clear existing scroll interval
+  if (state.dragState && state.dragState.scrollInterval) {
+    clearInterval(state.dragState.scrollInterval);
+    state.dragState.scrollInterval = null;
+  }
+
+  // Scroll up when dragging near top
+  if (mouseY - rect.top < scrollThreshold) {
+    state.dragState.scrollInterval = setInterval(() => {
+      container.scrollTop -= scrollSpeed;
+      if (container.scrollTop <= 0) {
+        clearInterval(state.dragState.scrollInterval);
+      }
+    }, 16);
+  }
+  // Scroll down when dragging near bottom
+  else if (rect.bottom - mouseY < scrollThreshold) {
+    state.dragState.scrollInterval = setInterval(() => {
+      container.scrollTop += scrollSpeed;
+      const maxScroll = container.scrollHeight - container.clientHeight;
+      if (container.scrollTop >= maxScroll) {
+        clearInterval(state.dragState.scrollInterval);
+      }
+    }, 16);
+  }
+}
+
+function cleanupDragState() {
+  // Clear scroll interval
+  if (state.dragState && state.dragState.scrollInterval) {
+    clearInterval(state.dragState.scrollInterval);
+  }
+
+  // Remove all visual states
+  document.querySelectorAll(".coaster-card").forEach((card) => {
+    card.classList.remove("dragging", "drag-over", "drag-placeholder");
+    card.style.transform = "";
+  });
+
+  state.dragState = null;
 }
 
 // Global Stepper Helper
