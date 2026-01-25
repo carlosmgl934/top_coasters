@@ -97,10 +97,12 @@ const dom = {
 };
 
 // --- Init ---
+// --- Init ---
 async function init() {
   await initDB();
   await loadData();
   renderApp();
+  setupContainerDrop(); // Initialize container drop handlers
   setupEventListeners();
 }
 
@@ -1323,33 +1325,101 @@ async function handleDragDrop(fromIndex, toIndex) {
   }
 
   await new Promise((r) => (tx.oncomplete = r));
-  renderApp();
+
+  // OPTIMIZED RENDER: Swap DOM elements directly instead of full re-render
+  // This makes it instant even with 169+ items
+  if (
+    state.view === "coasters" &&
+    state.sortBy === "rank" &&
+    !state.filterPark &&
+    !state.filterMfg &&
+    !state.filterCountry
+  ) {
+    const container = dom.views.coasters;
+    // children[index] corresponds to current state before memory swap?
+    // No, we already swapped memory. list[index] is the item that WAS at newIndex.
+    // But DOM is NOT swapped yet. DOM children[index] is the item that WAS at index.
+
+    const domItem1 = container.children[fromIndex];
+    const domItem2 = container.children[toIndex];
+
+    // Determine direction of movement
+    const direction = fromIndex < toIndex ? 1 : -1;
+
+    // Swap visuals (Classes for rank colors might change if moving in/out of top 3)
+    const rank1 = fromIndex + 1;
+    const rank2 = toIndex + 1;
+
+    // Update badges text
+    updateRankBadge(domItem1, rank2); // domItem1 moves to newIndex (rank2)
+    updateRankBadge(domItem2, rank1); // domItem2 moves to index (rank1)
+
+    // Swap DOM positions
+    // If moving down (direction 1): domItem1 goes after domItem2
+    // If moving up (direction -1): domItem1 goes before domItem2
+    if (direction === 1) {
+      container.insertBefore(domItem1, domItem2.nextElementSibling);
+    } else {
+      container.insertBefore(domItem1, domItem2);
+    }
+
+    // Update styles (Top 3 highlighting)
+    updateRankStyles(domItem1, rank2);
+    updateRankStyles(domItem2, rank1);
+  } else {
+    renderApp();
+  }
+}
+
+function updateRankBadge(card, newRank) {
+  const badge = card.querySelector(".rank-badge");
+  if (badge) {
+    // Keep flag if present
+    const flag = badge.querySelector(".flag-pop");
+    const flagHTML = flag ? flag.outerHTML : "";
+    badge.innerHTML = `${flagHTML} #${newRank}`;
+  }
+}
+
+function updateRankStyles(card, rank) {
+  const badge = card.querySelector(".rank-badge");
+  if (!badge) return;
+
+  // Remove old rank classes
+  badge.classList.remove("rank-1", "rank-2", "rank-3");
+
+  // Add new if applicable
+  if (rank <= 3) {
+    badge.classList.add(`rank-${rank}`);
+  }
 }
 
 // Spotify-style Drag & Drop Helpers
 function updateDragPlaceholder(fromIndex, toIndex) {
-  const cards = document.querySelectorAll(".coaster-card:not(.dragging)");
+  // Use requestAnimationFrame for smoother updates
+  requestAnimationFrame(() => {
+    const cards = document.querySelectorAll(".coaster-card:not(.dragging)");
 
-  cards.forEach((card, visualIndex) => {
-    const cardIndex = parseInt(card.dataset.dragIndex);
-    if (cardIndex === undefined) return;
+    cards.forEach((card) => {
+      const cardIndex = parseInt(card.dataset.dragIndex);
+      if (isNaN(cardIndex)) return;
 
-    // Remove any existing placeholder classes
-    card.classList.remove("drag-placeholder");
-    card.style.transform = "";
+      // Reset transform
+      card.style.transform = "";
 
-    // Shift cards to make space for drop
-    if (fromIndex < toIndex) {
-      // Dragging down: shift cards up
-      if (cardIndex > fromIndex && cardIndex <= toIndex) {
-        card.style.transform = "translateY(-176px)"; // -(height + gap)
+      // Shift cards
+      if (fromIndex < toIndex) {
+        // Dragging down
+        if (cardIndex > fromIndex && cardIndex <= toIndex) {
+          card.style.transform = "translateY(-176px)";
+        }
+      } else if (fromIndex > toIndex) {
+        // Dragging up
+        if (cardIndex >= toIndex && cardIndex < fromIndex) {
+          card.style.transform = "translateY(176px)";
+        }
       }
-    } else if (fromIndex > toIndex) {
-      // Dragging up: shift cards down
-      if (cardIndex >= toIndex && cardIndex < fromIndex) {
-        card.style.transform = "translateY(176px)"; // height + gap
-      }
-    }
+    });
   });
 }
 
@@ -1357,51 +1427,98 @@ function handleAutoScroll(e) {
   const container = document.querySelector(".content-area");
   if (!container) return;
 
-  const scrollThreshold = 80; // Distance from edge to trigger scroll
-  const scrollSpeed = 10;
+  const scrollThreshold = 100; // Increased threshold for easier triggering
+  const maxScrollSpeed = 20; // Faster max speed
   const rect = container.getBoundingClientRect();
   const mouseY = e.clientY;
 
-  // Clear existing scroll interval
   if (state.dragState && state.dragState.scrollInterval) {
     clearInterval(state.dragState.scrollInterval);
     state.dragState.scrollInterval = null;
   }
 
-  // Scroll up when dragging near top
+  // Calculate speed based on distance to edge (optional, keep simple for now)
+
   if (mouseY - rect.top < scrollThreshold) {
+    // Scroll Up
     state.dragState.scrollInterval = setInterval(() => {
-      container.scrollTop -= scrollSpeed;
-      if (container.scrollTop <= 0) {
-        clearInterval(state.dragState.scrollInterval);
-      }
+      container.scrollTop -= maxScrollSpeed;
     }, 16);
-  }
-  // Scroll down when dragging near bottom
-  else if (rect.bottom - mouseY < scrollThreshold) {
+  } else if (rect.bottom - mouseY < scrollThreshold) {
+    // Scroll Down
     state.dragState.scrollInterval = setInterval(() => {
-      container.scrollTop += scrollSpeed;
-      const maxScroll = container.scrollHeight - container.clientHeight;
-      if (container.scrollTop >= maxScroll) {
-        clearInterval(state.dragState.scrollInterval);
-      }
+      container.scrollTop += maxScrollSpeed;
     }, 16);
   }
 }
 
 function cleanupDragState() {
-  // Clear scroll interval
   if (state.dragState && state.dragState.scrollInterval) {
     clearInterval(state.dragState.scrollInterval);
   }
 
-  // Remove all visual states
   document.querySelectorAll(".coaster-card").forEach((card) => {
     card.classList.remove("dragging", "drag-over", "drag-placeholder");
     card.style.transform = "";
   });
 
   state.dragState = null;
+}
+
+// Container Drop Handler (to catch drops between cards)
+function setupContainerDrop() {
+  const container = dom.views.coasters;
+
+  container.ondragover = (e) => {
+    e.preventDefault();
+    if (!state.dragState) return;
+
+    // Find closest card based on Y
+    const cards = Array.from(
+      container.querySelectorAll(".coaster-card:not(.dragging)"),
+    );
+    const mouseY = e.clientY;
+
+    let closestCard = null;
+    let minDist = Infinity;
+
+    cards.forEach((card) => {
+      const rect = card.getBoundingClientRect();
+      const cardMidY = rect.top + rect.height / 2;
+      const dist = Math.abs(mouseY - cardMidY);
+      if (dist < minDist) {
+        minDist = dist;
+        closestCard = card;
+      }
+    });
+
+    if (closestCard) {
+      const targetIndex = parseInt(closestCard.dataset.dragIndex);
+      if (
+        !isNaN(targetIndex) &&
+        state.dragState.currentHoverIndex !== targetIndex
+      ) {
+        updateDragPlaceholder(state.dragState.fromIndex, targetIndex);
+        state.dragState.currentHoverIndex = targetIndex;
+      }
+    }
+
+    handleAutoScroll(e);
+  };
+
+  container.ondrop = (e) => {
+    e.preventDefault();
+    // The card.ondrop handles the actual logic if dropped on card
+    // If dropped on container gap, we rely on the last known currentHoverIndex
+    if (state.dragState && e.target === container) {
+      const fromIndex = state.dragState.fromIndex;
+      const toIndex = state.dragState.currentHoverIndex;
+      if (fromIndex !== toIndex) {
+        handleDragDrop(fromIndex, toIndex);
+      }
+      cleanupDragState();
+    }
+  };
 }
 
 // Global Stepper Helper
