@@ -741,6 +741,12 @@ body {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
   padding: 0;
+
+  /* PREVENT ZOOM ON DOUBLE-TAP */
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .stepper-btn:hover {

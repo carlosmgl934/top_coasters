@@ -102,7 +102,6 @@ async function init() {
   await loadData();
   renderApp();
   setupEventListeners();
-  setupContainerDrop(); // Initialize container drop handlers AFTER event listeners
 }
 
 // Module scripts might run after DOMContentLoaded. Check readyState.
@@ -367,53 +366,8 @@ function renderCoasterList() {
             </div>
         `;
       card.onclick = () => editCoaster(coaster.id);
-
-      // Enable Drag & Drop for reordering (only when no filters and in rank mode)
-      if (
-        state.sortBy === "rank" &&
-        !state.filterPark &&
-        !state.filterMfg &&
-        !state.filterCountry
-      ) {
-        card.draggable = true;
-        card.classList.add("draggable");
-        card.dataset.id = coaster.id; // Ensure ID is accessible
-
-        // Clean Drag Start
-        card.ondragstart = (e) => {
-          // e.stopPropagation(); // Let it bubble to container? No, we handle specifically.
-
-          state.dragState = {
-            draggedId: coaster.id,
-            originalIndex: index,
-            scrollInterval: null,
-          };
-
-          // Delay adding class to allow drag image to be created from original element
-          setTimeout(() => card.classList.add("dragging"), 0);
-
-          e.dataTransfer.effectAllowed = "move";
-          e.dataTransfer.setData("text/plain", coaster.id);
-        };
-
-        card.ondragend = (e) => {
-          card.classList.remove("dragging");
-          cleanupDragState();
-
-          // Force a reload to ensure consistent state
-          // Or we can trust our DOM manipulation + Rank Update
-          // renderApp(); // Optional: might be jarring, try avoid it
-        };
-
-        // Remove individual dragover listeners - we will use container level
-        card.ondragover = null;
-        card.ondragleave = null;
-        card.ondrop = null;
-      }
     }
 
-    // Add spacer at bottom to make dropping at end easier
-    // dom.views.coasters.appendChild(document.createElement('div')).style.height = "50px";
     dom.views.coasters.appendChild(card);
   });
 }
