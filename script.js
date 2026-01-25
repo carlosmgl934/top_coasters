@@ -102,8 +102,8 @@ async function init() {
   await initDB();
   await loadData();
   renderApp();
-  setupContainerDrop(); // Initialize container drop handlers
   setupEventListeners();
+  setupContainerDrop(); // Initialize container drop handlers AFTER event listeners
 }
 
 // Module scripts might run after DOMContentLoaded. Check readyState.
