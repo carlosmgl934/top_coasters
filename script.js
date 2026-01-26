@@ -1173,63 +1173,42 @@ function updateSelectOptions() {
 
 async function handleRankUpdate(storeName, item, targetRank, isNew = false) {
   const list = storeName === "coasters" ? state.coasters : state.parks;
-  // Ensure sorted
+  const keyProp = storeName === "coasters" ? "id" : "name";
+
+  // Ensure fresh sort
   list.sort((a, b) => (a.rank || 0) - (b.rank || 0));
 
-  // If no target rank, or rank same as current (edit), simple save
+  // If new, just add to end first
+  if (isNew) {
+    item.rank = list.length + 1;
+    list.push(item);
+  }
+
+  // If no target rank specified or invalid, just save as last
   if (!targetRank || targetRank < 1) {
-    if (isNew) {
-      item.rank = list.length + 1;
-    }
     await addData(storeName, item);
     return;
   }
 
-  // Identify key
-  const keyProp = storeName === "coasters" ? "id" : "name";
+  // Remove item from current position in array (by reference/id)
+  const currentIndex = list.findIndex((i) => i[keyProp] === item[keyProp]);
+  if (currentIndex !== -1) {
+    list.splice(currentIndex, 1);
+  }
 
-  // Find current position (if editing)
-  const currentIndex = !isNew
-    ? list.findIndex((i) => i[keyProp] === item[keyProp])
-    : -1;
-  const targetIndex = targetRank - 1;
+  // Clamp target index
+  const safeTargetIndex = Math.max(0, Math.min(targetRank - 1, list.length));
 
-  // OPTIMIZATION: Only update affected items
+  // Insert at new position
+  list.splice(safeTargetIndex, 0, item);
+
+  // Re-assign ALL ranks sequentially (1, 2, 3...)
   const tx = db.transaction(storeName, "readwrite");
   const store = tx.objectStore(storeName);
 
-  if (isNew) {
-    // New item: shift down items from targetRank onwards
-    item.rank = targetRank;
-    store.put(item);
-
-    // Only update items that need to shift down
-    for (let i = targetIndex; i < list.length; i++) {
-      if (list[i].rank >= targetRank) {
-        list[i].rank++;
-        store.put(list[i]);
-      }
-    }
-  } else {
-    // Editing existing: update item rank
-    item.rank = targetRank;
-    store.put(item);
-
-    // Only update items between old and new position
-    if (currentIndex !== -1 && currentIndex !== targetIndex) {
-      const start = Math.min(currentIndex, targetIndex);
-      const end = Math.max(currentIndex, targetIndex);
-
-      for (let i = start; i <= end; i++) {
-        if (i !== currentIndex) {
-          const adjustedRank = i < targetIndex ? i + 1 : i + 2;
-          if (list[i].rank !== adjustedRank) {
-            list[i].rank = adjustedRank;
-            store.put(list[i]);
-          }
-        }
-      }
-    }
+  for (let i = 0; i < list.length; i++) {
+    list[i].rank = i + 1;
+    store.put(list[i]);
   }
 
   await new Promise((r) => (tx.oncomplete = r));
