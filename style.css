@@ -4,7 +4,6 @@
 }
 /* Efecto inmediato al tocar/seleccionar */
 .sortable-chosen {
-  background: rgba(94, 106, 210, 0.3) !important;
   background: rgba(94, 106, 210, 0.4) !important;
   border: 2px solid #8e99f3 !important;
   box-shadow: 0 0 40px rgba(94, 106, 210, 0.6) !important;

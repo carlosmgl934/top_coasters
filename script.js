@@ -412,14 +412,14 @@ function initSortable() {
     fallbackClass: "sortable-drag",
     fallbackOnBody: true,
     fallbackTolerance: 3,
-    delay: state.dragDelay || 600, // 0.6s for a natural feel
+    delay: 600, // Ajustado a 0.6s clavados
     delayOnTouchOnly: true,
     touchStartThreshold: 5,
 
-    // Scroll Tweaks - Precision "Braking"
+    // Scroll Tweaks - Control de "frenado" suave
     scroll: document.querySelector(".content-area"),
-    scrollSensitivity: 150, // Detection zone is larger
-    scrollSpeed: 8, // Slower fixed speed makes it easier to 'stop' precisely
+    scrollSensitivity: 150, // Mayor sensibilidad para detectar el borde pronto
+    scrollSpeed: 8, // Velocidad baja para parar fácil
     bubbleScroll: true,
 
     // Precision Tweaks
@@ -491,6 +491,7 @@ function updateDragPlaceholder(fromIndex, toIndex) {
 
 function renderParkList() {
   const container = dom.views.parks;
+  if (!container) return;
   container.innerHTML = "";
 
   if (!state.parks || state.parks.length === 0) {
