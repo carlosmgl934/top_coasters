@@ -407,12 +407,9 @@ function initSortable() {
     chosenClass: "sortable-chosen",
     handle: ".coaster-card",
 
-    // Improved Mobile Touch
-    forceFallback: true,
-    fallbackClass: "sortable-drag",
-    fallbackOnBody: true,
-    fallbackTolerance: 3,
-    delay: 600, // Ajustado a 0.6s clavados
+    // Improved Mobile Touch - Sin tarjeta flotante
+    forceFallback: false, // Drag directo, la tarjeta real se mueve
+    delay: 600,
     delayOnTouchOnly: true,
     touchStartThreshold: 5,
 
