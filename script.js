@@ -337,24 +337,12 @@ function renderCoasterList() {
             </div>
         `;
       card.onclick = () => toggleSelection(coaster.id);
-    } else {
-      let reorderControls = "";
-      if (
-        state.sortBy === "rank" &&
-        !state.filterPark &&
-        !state.filterMfg &&
-        !state.filterCountry
-      ) {
-        reorderControls = getReorderControls(index, state.coasters.length);
-      }
-
       const rankClass = displayRank <= 3 ? `rank-${displayRank}` : "";
       const nameClass = coaster.name.length > 20 ? "long-text" : "";
 
       card.innerHTML = `
             ${bgStyle}
             <div class="rank-badge ${rankClass}">${flagHtml} #${displayRank}</div>
-            ${reorderControls}
             <div class="card-content">
                 <div class="card-info">
                     <h3 class="${nameClass}">${coaster.name}</h3>
@@ -410,15 +398,15 @@ function initSortable() {
     forceFallback: true,
     fallbackClass: "sortable-drag",
     fallbackOnBody: true,
-    fallbackTolerance: 2,
-    delay: 1100,
+    fallbackTolerance: 3,
+    delay: 500, // Ajustado a 0.5s para que sea natural (antes 1.1s se sentía eterno)
     delayOnTouchOnly: true,
-    touchStartThreshold: 5,
+    touchStartThreshold: 3,
 
-    // Scroll Tweaks
+    // Scroll Tweaks - Control de "frenado" mejorado
     scroll: document.querySelector(".content-area"),
-    scrollSensitivity: 50,
-    scrollSpeed: 20,
+    scrollSensitivity: 80, // Detecta el borde con más margen
+    scrollSpeed: 15, // Velocidad reducida para que no se pase de largo
     bubbleScroll: true,
 
     // Precision Tweaks
@@ -503,9 +491,10 @@ function renderParkList() {
     const isSelected = state.selectedItems.has(park.name);
     const card = document.createElement("div");
     card.className = `coaster-card ${state.isDeleteMode && isSelected ? "selected" : ""}`;
+    card.dataset.name = park.name; // Crucial for reordering
     card.style.height = "100px";
 
-    let bgStyle = `<div class="card-bg-img" style="background: linear-gradient(45deg, #FF512F, #DD2476);"></div>`;
+    const bgStyle = `<div class="card-bg-img" style="background: linear-gradient(45deg, #FF512F, #DD2476);"></div>`;
     const flag = park.country ? getFlag(park.country) : "";
     const flagHtml = flag ? `<span class="flag-pop">${flag}</span>` : "";
 
@@ -523,11 +512,8 @@ function renderParkList() {
             </div>
         `;
       card.onclick = () => toggleSelection(park.name);
-      const isSelected = state.selectedItems.has(park.name);
-      const card = document.createElement("div");
-      card.className = `coaster-card ${state.isDeleteMode && isSelected ? "selected" : ""}`;
-      card.dataset.name = park.name; // Crucial for reordering
-      card.style.height = "100px";
+    } else {
+      const rankClass = index + 1 <= 3 ? `rank-${index + 1}` : "";
 
       card.innerHTML = `
             ${bgStyle}
@@ -537,7 +523,6 @@ function renderParkList() {
                 </div>
                 ${park.visitCount ? `<span class="visit-badge">🎟️ Nº Visitas: ${park.visitCount}</span>` : ""}
             </div>
-            ${reorderControls}
             <div class="card-content">
                 <div class="card-info">
                   <h3>
@@ -554,15 +539,6 @@ function renderParkList() {
 
   // Re-initialize Sortable for Parks
   initSortable();
-}
-
-function getReorderControls(index, total) {
-  return `
-        <div class="reorder-controls">
-            <button class="reorder-btn up" onclick="moveItem(event, ${index}, -1)">▲</button>
-            <button class="reorder-btn down" onclick="moveItem(event, ${index}, 1)">▼</button>
-        </div>
-    `;
 }
 
 function toggleSelection(id) {
