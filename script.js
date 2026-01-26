@@ -398,23 +398,29 @@ function initSortable() {
 
   sortableInstance = new Sortable(container, {
     animation: 250,
-    delay: 150, // Slight delay to prevent accidental drags on scroll
-    delayOnTouchOnly: true,
     ghostClass: "sortable-ghost",
     dragClass: "sortable-drag",
+    chosenClass: "sortable-chosen", // Added chosen class
     handle: ".coaster-card", // Make whole card draggable
 
     // Improved Mobile Touch
     forceFallback: true, // Use custom drag element instead of HTML5 DnD (smoother on mobile)
     fallbackClass: "sortable-drag", // Class for the fallback element
     fallbackOnBody: true, // Append to body to avoid overflow issues
-    fallbackTolerance: 5, // Avoid tiny accidental movements
+    fallbackTolerance: 3, // Lower tolerance to start drag faster
+    delay: 100, // Slightly faster trigger (0.1s)
+    delayOnTouchOnly: true, // Slight delay to prevent accidental drags on scroll
 
     // Scroll Tweaks - targeting the real scrolling container
     scroll: document.querySelector(".content-area"),
-    scrollSensitivity: 150, // Higher sensitivity to detect edges better
-    scrollSpeed: 40, // Faster scroll for fluidity
-    bubbleScroll: true, // Allow scrolling parent elements
+    scrollSensitivity: 50, // Much lower to only scroll when really at the edge
+    scrollSpeed: 20, // Slower speed for better control
+    bubbleScroll: true,
+
+    // Precision Tweaks
+    swapThreshold: 0.7, // Target must be 70% covered to swap
+    invertSwap: true, // Better for fast movements
+    direction: "vertical",
 
     onEnd: async function (evt) {
       // Re-calculate ranks based on new DOM order
