@@ -504,7 +504,19 @@ body {
   filter: brightness(1.1);
 }
 
-.btn-primary:active {
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.02);
+}
+
+.btn-primary:active,
+.btn-secondary:active {
   transform: scale(0.98);
 }
 

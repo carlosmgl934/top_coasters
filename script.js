@@ -941,6 +941,14 @@ function setupEventListeners() {
     });
   }
 
+  // Manual trigger for the import button to open file dialog
+  const importBtn = document.getElementById("import-btn"); // Need to add ID in HTML or select by class
+  if (importBtn) {
+    importBtn.addEventListener("click", () => {
+      importFile.click();
+    });
+  }
+
   if (importFile) {
     importFile.addEventListener("change", (e) => {
       const file = e.target.files[0];
