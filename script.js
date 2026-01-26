@@ -403,6 +403,13 @@ function initSortable() {
     ghostClass: "sortable-ghost",
     dragClass: "sortable-drag",
     handle: ".coaster-card", // Make whole card draggable
+
+    // Scroll Tweaks for mobile
+    scroll: true,
+    scrollSensitivity: 150, // Higher number = wider trigger area for scrolling
+    scrollSpeed: 20, // Faster scroll speed
+    bubbleScroll: true, // Allow scrolling parent elements
+
     onEnd: async function (evt) {
       // Re-calculate ranks based on new DOM order
       await saveNewOrderFromDOM();

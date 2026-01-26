@@ -248,6 +248,8 @@ body {
     transform 0.3s cubic-bezier(0.2, 0, 0, 1),
     margin 0.3s cubic-bezier(0.2, 0, 0, 1);
   user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y; /* Allow vertical scroll but prioritize drag if handled */
 }
 
 .coaster-card:active {
