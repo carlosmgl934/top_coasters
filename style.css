@@ -1,8 +1,6 @@
 /* SortableJS Styles */
 .sortable-ghost {
-  opacity: 0.4;
-  background: rgba(94, 106, 210, 0.2);
-  border: 2px dashed #5e6ad2;
+  opacity: 0 !important; /* Totalmente invisible para que no estorbe */
 }
 /* Efecto inmediato al tocar/seleccionar */
 .sortable-chosen {
@@ -258,7 +256,7 @@ body {
   transition: margin 0.3s cubic-bezier(0.2, 0, 0, 1);
   user-select: none;
   -webkit-user-select: none;
-  touch-action: none; /* Prevent browser scroll when interacting with cards */
+  touch-action: pan-y; /* Permite scroll normal, Sortable se activa al mantener pulsado */
 }
 
 .coaster-card:active {

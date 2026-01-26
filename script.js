@@ -407,9 +407,10 @@ function initSortable() {
     forceFallback: true, // Use custom drag element instead of HTML5 DnD (smoother on mobile)
     fallbackClass: "sortable-drag", // Class for the fallback element
     fallbackOnBody: true, // Append to body to avoid overflow issues
-    fallbackTolerance: 2, // Even tighter for responsiveness
-    delay: 0, // Instant drag to beat the browser's scroll intent
-    delayOnTouchOnly: false,
+    fallbackTolerance: 2,
+    delay: 1100, // 1.1 segundos para que el toque normal sea scroll
+    delayOnTouchOnly: true, // Solo aplica el delay en pantallas táctiles
+    touchStartThreshold: 5, // Tolerancia de movimiento del dedo antes de cancelar el delay
 
     // Scroll Tweaks - targeting the real scrolling container
     scroll: document.querySelector(".content-area"),
