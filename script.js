@@ -372,118 +372,6 @@ function renderCoasterList() {
 
     dom.views.coasters.appendChild(card);
   });
-
-  // Re-initialize Sortable
-  initSortable();
-}
-
-// --- SORTABLEJS HELPER ---
-let sortableInstance = null;
-
-function initSortable() {
-  const container =
-    state.view === "coasters" ? dom.views.coasters : dom.views.parks;
-
-  if (sortableInstance) {
-    sortableInstance.destroy();
-    sortableInstance = null;
-  }
-
-  // Only enable if sorting by rank (for coasters) and no filters active
-  // For parks, we always allow sorting as they don't have filters.
-  const canSort =
-    state.view === "parks" ||
-    (state.sortBy === "rank" &&
-      !state.filterPark &&
-      !state.filterMfg &&
-      !state.filterCountry);
-
-  if (!canSort) return;
-
-  sortableInstance = new Sortable(container, {
-    animation: 250,
-    ghostClass: "sortable-ghost",
-    dragClass: "sortable-drag",
-    chosenClass: "sortable-chosen",
-    handle: ".coaster-card",
-
-    // Improved Mobile Touch - Sin tarjeta flotante
-    forceFallback: false, // Drag directo, la tarjeta real se mueve
-    delay: 600,
-    delayOnTouchOnly: true,
-    touchStartThreshold: 5,
-
-    // Scroll Tweaks - Control de "frenado" suave
-    scroll: document.querySelector(".content-area"),
-    scrollSensitivity: 150, // Mayor sensibilidad para detectar el borde pronto
-    scrollSpeed: 8, // Velocidad baja para parar fácil
-    bubbleScroll: true,
-
-    // Precision Tweaks
-    swapThreshold: 0.65,
-    invertSwap: true,
-    direction: "vertical",
-
-    onEnd: async function (evt) {
-      await saveNewOrderFromDOM();
-    },
-  });
-}
-
-// Function to save the new order based on current DOM state
-async function saveNewOrderFromDOM() {
-  const isCoasters = state.view === "coasters";
-  const container = isCoasters ? dom.views.coasters : dom.views.parks;
-  const cards = Array.from(container.querySelectorAll(".coaster-card"));
-
-  const storeName = state.view; // 'coasters' or 'parks'
-  const tx = db.transaction(storeName, "readwrite");
-  const store = tx.objectStore(storeName);
-
-  const newList = [];
-  const listToSearch = isCoasters ? state.coasters : state.parks;
-
-  for (let i = 0; i < cards.length; i++) {
-    const card = cards[i];
-    const id = isCoasters ? parseInt(card.dataset.id) : card.dataset.id; // Parks use name as ID-like key in dataset if needed, but wait.
-    // Park cards don't have dataset.id by default in previous renderParkList. Let's fix that.
-
-    const item = listToSearch.find((x) =>
-      isCoasters ? x.id === id : x.name === card.dataset.name,
-    );
-
-    if (item) {
-      item.rank = i + 1;
-      store.put(item);
-      newList.push(item);
-
-      // Visual badge update
-      const badge = card.querySelector(".rank-badge");
-      if (badge) {
-        const flag = badge.querySelector(".flag-pop");
-        const flagHTML = flag ? flag.outerHTML : "";
-        badge.innerHTML = `${flagHTML} #${item.rank}`;
-        badge.classList.remove("rank-1", "rank-2", "rank-3");
-        if (item.rank <= 3) badge.classList.add(`rank-${item.rank}`);
-      }
-    }
-  }
-
-  if (isCoasters) {
-    state.coasters = newList;
-  } else {
-    state.parks = newList;
-  }
-
-  await new Promise((r) => (tx.oncomplete = r));
-}
-
-async function handleDragDrop(fromIndex, toIndex) {
-  // Legacy function - kept for safety but unused in new logic
-}
-
-function updateDragPlaceholder(fromIndex, toIndex) {
-  // Removed - unused in new logic
 }
 
 function renderParkList() {
@@ -547,7 +435,7 @@ function renderParkList() {
     container.appendChild(card);
   });
 
-  initSortable();
+  // SortableJS deshabilitado - Solo botones ▲/▼
 }
 
 function getReorderControls(index, total) {
