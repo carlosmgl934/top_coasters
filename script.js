@@ -23,6 +23,7 @@ const state = {
   editingCoaster: null,
   isMiniView: false, // New: Toggle for compact view
   dragState: null, // Tracks active drag operations
+  dragDelay: 600, // Shared drag delay for both lists (0.6s)
 };
 
 let cropper; // Global cropper instance
@@ -411,18 +412,18 @@ function initSortable() {
     fallbackClass: "sortable-drag",
     fallbackOnBody: true,
     fallbackTolerance: 3,
-    delay: 600, // 0.6s - El punto dulce entre scroll y drag
+    delay: state.dragDelay || 600, // 0.6s for a natural feel
     delayOnTouchOnly: true,
     touchStartThreshold: 5,
 
-    // Scroll Tweaks - Control de "frenado" suave
+    // Scroll Tweaks - Precision "Braking"
     scroll: document.querySelector(".content-area"),
-    scrollSensitivity: 120, // Mayor área para detectar el borde
-    scrollSpeed: 8, // Velocidad baja constante para que sea fácil frenar/parar
+    scrollSensitivity: 150, // Detection zone is larger
+    scrollSpeed: 8, // Slower fixed speed makes it easier to 'stop' precisely
     bubbleScroll: true,
 
     // Precision Tweaks
-    swapThreshold: 0.6,
+    swapThreshold: 0.65,
     invertSwap: true,
     direction: "vertical",
 
@@ -492,7 +493,7 @@ function renderParkList() {
   const container = dom.views.parks;
   container.innerHTML = "";
 
-  if (state.parks.length === 0) {
+  if (!state.parks || state.parks.length === 0) {
     container.innerHTML = `<div class="empty-state"><p>No hay parques.</p></div>`;
     return;
   }
