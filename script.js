@@ -163,7 +163,12 @@ async function loadData() {
     state.parks = await getAll("parks");
   }
 
+  // Ensure "Desconocida" manufacturer exists
   state.manufacturers = await getAll("manufacturers");
+  if (!state.manufacturers.find((m) => m.name === "Desconocida")) {
+    await addData("manufacturers", { name: "Desconocida" });
+    state.manufacturers = await getAll("manufacturers");
+  }
 
   // Initial sort by persistent rank (always load correct DB order)
   state.coasters.sort((a, b) => (a.rank || 0) - (b.rank || 0));
@@ -291,6 +296,7 @@ function renderCoasterList() {
   document.getElementById("filter-mfg").innerHTML =
     '<option value="">Todas las Manufacturadoras</option>' +
     state.manufacturers
+      .filter((m) => m.name !== "Desconocida")
       .slice()
       .sort((a, b) => (mfgCounts[b.name] || 0) - (mfgCounts[a.name] || 0))
       .map(
@@ -1080,6 +1086,8 @@ function setupEventListeners() {
     }
 
     state.manufacturers.forEach((mfg) => {
+      if (mfg.name === "Desconocida") return;
+
       const item = document.createElement("div");
       item.className = "mfg-item";
 
