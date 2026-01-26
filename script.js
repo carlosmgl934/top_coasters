@@ -95,6 +95,13 @@ const dom = {
   mfgName: document.getElementById("mfg-name-input"),
 
   photoPreview: document.getElementById("photo-preview"),
+
+  // Confirm Modal
+  confirmModal: document.getElementById("confirm-modal"),
+  confirmTitle: document.getElementById("confirm-title"),
+  confirmMessage: document.getElementById("confirm-message"),
+  confirmOk: document.getElementById("confirm-ok"),
+  confirmCancel: document.getElementById("confirm-cancel"),
 };
 
 // --- Init ---
@@ -172,13 +179,36 @@ function getAll(storeName) {
   });
 }
 
-function addData(storeName, data) {
+// --- Modal Helpers ---
+function showConfirm(title, message, okText = "Borrar", okColor = "#ff4757") {
   return new Promise((resolve) => {
-    const tx = db.transaction(storeName, "readwrite");
-    const store = tx.objectStore(storeName);
-    store.put(data);
-    tx.oncomplete = () => resolve();
+    dom.confirmTitle.textContent = title;
+    dom.confirmMessage.textContent = message;
+    dom.confirmOk.textContent = okText;
+    dom.confirmOk.style.background = okColor;
+    dom.confirmModal.classList.remove("hidden");
+
+    const onOk = () => {
+      cleanup();
+      resolve(true);
+    };
+    const onCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+    const cleanup = () => {
+      dom.confirmOk.removeEventListener("click", onOk);
+      dom.confirmCancel.removeEventListener("click", onCancel);
+      dom.confirmModal.classList.add("hidden");
+    };
+
+    dom.confirmOk.addEventListener("click", onOk);
+    dom.confirmCancel.addEventListener("click", onCancel);
   });
+}
+
+function showAlert(title, message, btnText = "Vale") {
+  return showConfirm(title, message, btnText, "#5e6ad2");
 }
 
 // --- UI Logic ---
@@ -459,7 +489,11 @@ function toggleSelection(id) {
 async function executeMassDelete() {
   if (state.selectedItems.size === 0) return;
 
-  if (!confirm(`¿Borrar ${state.selectedItems.size} elementos?`)) return;
+  const confirmed = await showConfirm(
+    "¿Borrar elementos?",
+    `¿Estás seguro de que quieres borrar ${state.selectedItems.size} elementos seleccionados?`,
+  );
+  if (!confirmed) return;
 
   const storeName = state.view; // coasters or parks
   const tx = db.transaction(storeName, "readwrite");
@@ -478,7 +512,11 @@ async function executeMassDelete() {
 
 // Global Delete Item
 window.deleteItem = async (id, storeName) => {
-  if (!confirm("¿Seguro que quieres borrarlo?")) return;
+  const confirmed = await showConfirm(
+    "¿Seguro?",
+    "¿De verdad quieres borrar este elemento? Esta acción no se puede deshacer.",
+  );
+  if (!confirmed) return;
 
   const tx = db.transaction(storeName, "readwrite");
   const store = tx.objectStore(storeName);
@@ -742,7 +780,7 @@ function setupEventListeners() {
     } else {
       // Create Mode
       if (state.parks.find((p) => p.name === name)) {
-        alert("¡El parque ya existe!");
+        showAlert("¡Ups!", "¡El parque ya existe!");
         return;
       }
       const newPark = { name, country, visitCount };
@@ -760,7 +798,7 @@ function setupEventListeners() {
     e.preventDefault();
     const name = dom.mfgName.value;
     if (state.manufacturers.find((m) => m.name === name)) {
-      alert("¡Existe!");
+      showAlert("¡Ups!", "¡Esta manufacturadora ya existe!");
       return;
     }
     await addData("manufacturers", { name });
@@ -913,11 +951,14 @@ function setupEventListeners() {
         try {
           const importedData = JSON.parse(e.target.result);
 
-          if (
-            !confirm(
-              `Se importarán:\n- ${importedData.coasters?.length || 0} Coasters\n- ${importedData.parks?.length || 0} Parques\n\n¿Seguro? Esto fusionará/sobrescribirá datos.`,
-            )
-          ) {
+          const confirmed = await showConfirm(
+            "¿Importar Datos?",
+            `Se importarán:\n- ${importedData.coasters?.length || 0} Coasters\n- ${importedData.parks?.length || 0} Parques\n\n¿Seguro? Esto fusionará/sobrescribirá datos.`,
+            "Importar",
+            "#e67e22",
+          );
+
+          if (!confirmed) {
             importFile.value = "";
             return;
           }
@@ -939,7 +980,12 @@ function setupEventListeners() {
             }
           }
 
-          alert("¡Datos importados correctamente! 🚀");
+          await showConfirm(
+            "¡Hecho!",
+            "¡Datos importados correctamente! 🚀",
+            "Genial",
+            "#27ae60",
+          );
           state.isDeleteMode = false; // Reset safe
           dataModal.classList.add("hidden");
           importFile.value = "";
@@ -947,7 +993,7 @@ function setupEventListeners() {
           await loadData();
           renderApp();
         } catch (err) {
-          alert("Error al leer el archivo JSON: " + err);
+          showAlert("Error", "Error al leer el archivo JSON: " + err);
           console.error(err);
         }
       };
