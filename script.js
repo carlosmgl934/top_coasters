@@ -288,8 +288,9 @@ function renderCoasterList() {
       // Both have heights, sort descending (highest first)
       return heightB - heightA;
     });
+    // SortableJS handles the drag behavior, so no manual draggable attribute is needed.
   } else {
-    // Assume already sorted by rank in state.coasters, but let's ensure
+    // Already sorted by rank in state.coasters
     displayList.sort((a, b) => (a.rank || 0) - (b.rank || 0));
   }
 
@@ -370,93 +371,49 @@ function renderCoasterList() {
 
     dom.views.coasters.appendChild(card);
   });
+
+  // Re-initialize Sortable
+  initSortable();
 }
 
-// --- CONTAINER LEVEL DRAG HANDLER (Robust) ---
-function setupContainerDrop() {
+// --- SORTABLEJS HELPER ---
+let sortableInstance = null;
+
+function initSortable() {
   const container = dom.views.coasters;
-  let placeholder = document.createElement("div");
-  placeholder.className = "coaster-card drag-placeholder";
-  placeholder.style.height = "160px"; // Match card height
-  placeholder.style.background = "rgba(255, 255, 255, 0.05)";
-  placeholder.style.borderRadius = "16px";
-  placeholder.style.border = "2px dashed #5e6ad2";
-  placeholder.style.marginBottom = "16px";
 
-  container.ondragover = (e) => {
-    e.preventDefault();
-    if (!state.dragState) return;
+  if (sortableInstance) {
+    sortableInstance.destroy();
+    sortableInstance = null;
+  }
 
-    // Auto Scroll
-    handleAutoScroll(e);
+  // Only enable if sorting by rank and no filters active
+  const canSort =
+    state.sortBy === "rank" &&
+    !state.filterPark &&
+    !state.filterMfg &&
+    !state.filterCountry;
 
-    const draggingCard = document.querySelector(".dragging");
-    if (!draggingCard) return;
+  if (!canSort) return;
 
-    // Find closest sibling
-    const afterElement = getDragAfterElement(container, e.clientY);
-
-    if (afterElement == null) {
-      container.appendChild(placeholder);
-    } else {
-      container.insertBefore(placeholder, afterElement);
-    }
-  };
-
-  container.ondrop = async (e) => {
-    e.preventDefault();
-    if (!state.dragState) return;
-
-    const draggingCard = document.querySelector(".dragging");
-    if (!draggingCard) {
-      cleanupDragState();
-      return;
-    }
-
-    // Replace placeholder with the actual card
-    container.insertBefore(draggingCard, placeholder);
-    placeholder.remove(); // Remove placeholder
-    draggingCard.classList.remove("dragging");
-
-    // Now calculate new order based on DOM
-    await saveNewOrderFromDOM();
-    cleanupDragState();
-  };
-}
-
-// Helper to calculate position
-function getDragAfterElement(container, y) {
-  // Get all draggable elements except the one being dragged and the placeholder
-  const draggableElements = [
-    ...container.querySelectorAll(
-      ".coaster-card.draggable:not(.dragging):not(.drag-placeholder)",
-    ),
-  ];
-
-  return draggableElements.reduce(
-    (closest, child) => {
-      const box = child.getBoundingClientRect();
-      // Calculate offset from center of box
-      const offset = y - box.top - box.height / 2;
-
-      // We want the element where we are ABOVE its center (negative offset)
-      // and closest to 0
-      if (offset < 0 && offset > closest.offset) {
-        return { offset: offset, element: child };
-      } else {
-        return closest;
-      }
+  sortableInstance = new Sortable(container, {
+    animation: 250,
+    delay: 150, // Slight delay to prevent accidental drags on scroll
+    delayOnTouchOnly: true,
+    ghostClass: "sortable-ghost",
+    dragClass: "sortable-drag",
+    handle: ".coaster-card", // Make whole card draggable
+    onEnd: async function (evt) {
+      // Re-calculate ranks based on new DOM order
+      await saveNewOrderFromDOM();
     },
-    { offset: Number.NEGATIVE_INFINITY },
-  ).element;
+  });
 }
 
 // Function to save the new order based on current DOM state
 async function saveNewOrderFromDOM() {
   const container = dom.views.coasters;
-  const cards = Array.from(
-    container.querySelectorAll(".coaster-card.draggable"),
-  );
+  const cards = Array.from(container.querySelectorAll(".coaster-card"));
 
   // Create a map for Rank 1..N
   const storeName = "coasters";
@@ -1398,47 +1355,7 @@ function updateRankStyles(card, rank) {
 
 // function updateDragPlaceholder(fromIndex, toIndex) { ... }
 
-function handleAutoScroll(e) {
-  const container = document.querySelector(".content-area");
-  if (!container) return;
-
-  const scrollThreshold = 100; // Increased threshold for easier triggering
-  const maxScrollSpeed = 20; // Faster max speed
-  const rect = container.getBoundingClientRect();
-  const mouseY = e.clientY;
-
-  if (state.dragState && state.dragState.scrollInterval) {
-    clearInterval(state.dragState.scrollInterval);
-    state.dragState.scrollInterval = null;
-  }
-
-  // Calculate speed based on distance to edge (optional, keep simple for now)
-
-  if (mouseY - rect.top < scrollThreshold) {
-    // Scroll Up
-    state.dragState.scrollInterval = setInterval(() => {
-      container.scrollTop -= maxScrollSpeed;
-    }, 16);
-  } else if (rect.bottom - mouseY < scrollThreshold) {
-    // Scroll Down
-    state.dragState.scrollInterval = setInterval(() => {
-      container.scrollTop += maxScrollSpeed;
-    }, 16);
-  }
-}
-
-function cleanupDragState() {
-  if (state.dragState && state.dragState.scrollInterval) {
-    clearInterval(state.dragState.scrollInterval);
-  }
-
-  document.querySelectorAll(".coaster-card").forEach((card) => {
-    card.classList.remove("dragging", "drag-over", "drag-placeholder");
-    card.style.transform = "";
-  });
-
-  state.dragState = null;
-}
+// SortableJS handles auto-scroll and cleanup automatically.
 
 // Global Stepper Helper
 window.updateStepper = (inputId, change) => {
