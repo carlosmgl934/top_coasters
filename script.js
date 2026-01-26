@@ -236,9 +236,13 @@ function renderApp() {
     if (state.view === "coasters") {
       dom.filterBar.classList.remove("hidden");
       dom.title.textContent = "Top Coasters";
+      const viewToggleBtn = document.getElementById("view-toggle-btn");
+      if (viewToggleBtn) viewToggleBtn.style.display = "";
     } else {
       dom.filterBar.classList.add("hidden");
       dom.title.textContent = "Top Parques";
+      const viewToggleBtn = document.getElementById("view-toggle-btn");
+      if (viewToggleBtn) viewToggleBtn.style.display = "none";
     }
   }
 
@@ -424,9 +428,11 @@ function renderParkList() {
     return;
   }
 
-  state.parks.forEach((park, index) => {
-    if (park.name === "Otro") return;
+  state.parks.sort((a, b) => (a.rank || 0) - (b.rank || 0)); // Ensure sorted
 
+  const displayParks = state.parks.filter((p) => p.name !== "Otro");
+
+  displayParks.forEach((park, index) => {
     const isSelected = state.selectedItems.has(park.name);
     const card = document.createElement("div");
     card.className = `coaster-card ${state.isDeleteMode && isSelected ? "selected" : ""}`;
@@ -436,7 +442,7 @@ function renderParkList() {
     const bgStyle = `<div class="card-bg-img" style="background: linear-gradient(45deg, #FF512F, #DD2476);"></div>`;
     const flag = park.country ? getFlag(park.country) : "";
     const flagHtml = flag ? `<span class="flag-pop">${flag}</span>` : "";
-    const reorderControls = getReorderControls(index, state.parks.length);
+    const reorderControls = getReorderControls(index, displayParks.length);
     const rankClass = index + 1 <= 3 ? `rank-${index + 1}` : "";
 
     if (state.isDeleteMode) {
@@ -584,7 +590,8 @@ window.editPark = (name) => {
 
   // Populate
   dom.parkName.value = park.name;
-  dom.parkName.disabled = true; // Key cannot be changed easily
+  dom.parkName.value = park.name;
+  dom.parkName.disabled = false;
 
   // Populate Country
   updateSelectOptions();
@@ -693,7 +700,9 @@ function setupEventListeners() {
     if (e.target.value === "new_mfg") {
       dom.forms.coaster.classList.add("hidden");
       dom.forms.mfg.classList.remove("hidden");
+      dom.forms.mfg.classList.remove("hidden");
       dom.modalTitle.textContent = "Crear Manufacturadora";
+      dom.mfgName.value = "";
       dom.mfgName.focus();
     }
   });
@@ -781,11 +790,46 @@ function setupEventListeners() {
 
     if (state.editingPark) {
       // Edit Mode
-      const park = state.parks.find((p) => p.name === state.editingPark);
-      if (park) {
-        park.country = country;
-        park.visitCount = visitCount;
-        await handleRankUpdate("parks", park, targetRank);
+      if (state.editingPark !== name) {
+        // Rename Logic
+        if (state.parks.find((p) => p.name === name)) {
+          showAlert("¡Ups!", "¡El parque ya existe!");
+          return;
+        }
+
+        const oldName = state.editingPark;
+        const oldPark = state.parks.find((p) => p.name === oldName);
+
+        // Update Coasters & Delete Old Park via Transaction
+        const tx = db.transaction(["coasters", "parks"], "readwrite");
+        const coasterStore = tx.objectStore("coasters");
+        const parkStore = tx.objectStore("parks");
+
+        const affectedCoasters = state.coasters.filter(
+          (c) => c.park === oldName,
+        );
+        affectedCoasters.forEach((c) => {
+          c.park = name;
+          coasterStore.put(c);
+        });
+
+        parkStore.delete(oldName);
+
+        await new Promise((r) => (tx.oncomplete = r));
+        await loadData();
+
+        // Create New Park Entry with correct rank
+        const newPark = { ...oldPark, name, country, visitCount };
+        // Treat as new to insert correctly
+        await handleRankUpdate("parks", newPark, targetRank, true);
+      } else {
+        // Standard Edit
+        const park = state.parks.find((p) => p.name === state.editingPark);
+        if (park) {
+          park.country = country;
+          park.visitCount = visitCount;
+          await handleRankUpdate("parks", park, targetRank);
+        }
       }
     } else {
       // Create Mode
