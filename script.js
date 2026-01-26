@@ -411,18 +411,18 @@ function initSortable() {
     fallbackClass: "sortable-drag",
     fallbackOnBody: true,
     fallbackTolerance: 3,
-    delay: 500, // Ajustado a 0.5s para que sea natural (antes 1.1s se sentía eterno)
+    delay: 600, // 0.6s - El punto dulce entre scroll y drag
     delayOnTouchOnly: true,
-    touchStartThreshold: 3,
+    touchStartThreshold: 5,
 
-    // Scroll Tweaks - Control de "frenado" mejorado
+    // Scroll Tweaks - Control de "frenado" suave
     scroll: document.querySelector(".content-area"),
-    scrollSensitivity: 80, // Detecta el borde con más margen
-    scrollSpeed: 15, // Velocidad reducida para que no se pase de largo
+    scrollSensitivity: 120, // Mayor área para detectar el borde
+    scrollSpeed: 8, // Velocidad baja constante para que sea fácil frenar/parar
     bubbleScroll: true,
 
     // Precision Tweaks
-    swapThreshold: 0.7,
+    swapThreshold: 0.6,
     invertSwap: true,
     direction: "vertical",
 
@@ -489,26 +489,28 @@ function updateDragPlaceholder(fromIndex, toIndex) {
 }
 
 function renderParkList() {
-  dom.views.parks.innerHTML = "";
+  const container = dom.views.parks;
+  container.innerHTML = "";
 
   if (state.parks.length === 0) {
-    dom.views.parks.innerHTML = `<div class="empty-state"><p>No hay parques.</p></div>`;
+    container.innerHTML = `<div class="empty-state"><p>No hay parques.</p></div>`;
     return;
   }
 
   state.parks.forEach((park, index) => {
-    // Skip "Otro" in the parks list view
     if (park.name === "Otro") return;
 
     const isSelected = state.selectedItems.has(park.name);
     const card = document.createElement("div");
     card.className = `coaster-card ${state.isDeleteMode && isSelected ? "selected" : ""}`;
-    card.dataset.name = park.name; // Crucial for reordering
+    card.dataset.name = park.name;
     card.style.height = "100px";
 
     const bgStyle = `<div class="card-bg-img" style="background: linear-gradient(45deg, #FF512F, #DD2476);"></div>`;
     const flag = park.country ? getFlag(park.country) : "";
     const flagHtml = flag ? `<span class="flag-pop">${flag}</span>` : "";
+    const reorderControls = getReorderControls(index, state.parks.length);
+    const rankClass = index + 1 <= 3 ? `rank-${index + 1}` : "";
 
     if (state.isDeleteMode) {
       card.innerHTML = `
@@ -525,9 +527,6 @@ function renderParkList() {
         `;
       card.onclick = () => toggleSelection(park.name);
     } else {
-      const reorderControls = getReorderControls(index, state.parks.length);
-      const rankClass = index + 1 <= 3 ? `rank-${index + 1}` : "";
-
       card.innerHTML = `
             ${bgStyle}
             <div class="badges-wrapper">
@@ -539,19 +538,16 @@ function renderParkList() {
             ${reorderControls}
             <div class="card-content">
                 <div class="card-info">
-                  <h3>
-                    ${park.name} 
-                  </h3>
+                  <h3>${park.name}</h3>
                 </div>
             </div>
         `;
       card.onclick = () => editPark(park.name);
     }
 
-    dom.views.parks.appendChild(card);
+    container.appendChild(card);
   });
 
-  // Re-initialize Sortable for Parks
   initSortable();
 }
 
