@@ -179,6 +179,16 @@ function getAll(storeName) {
   });
 }
 
+function addData(storeName, data) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readwrite");
+    const store = tx.objectStore(storeName);
+    const request = store.put(data);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = (e) => reject("Error adding data: " + e.target.error);
+  });
+}
+
 // --- Modal Helpers ---
 function showConfirm(title, message, okText = "Borrar", okColor = "#ff4757") {
   return new Promise((resolve) => {
