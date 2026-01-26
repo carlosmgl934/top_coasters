@@ -971,7 +971,7 @@ function setupEventListeners() {
 
           const confirmed = await showConfirm(
             "¿Importar Datos?",
-            `Se importarán:\n- ${importedData.coasters?.length || 0} Coasters\n- ${importedData.parks?.length || 0} Parques\n\n¿Seguro? Esto fusionará/sobrescribirá datos.`,
+            `Se importarán:\n- ${importedData.coasters?.length || 0} Coasters\n- ${importedData.parks?.length || 0} Parques\n\nEsto fusionará/sobrescribirá datos`,
             "Importar",
             "#e67e22",
           );
@@ -1031,7 +1031,7 @@ function setupEventListeners() {
 
     if (state.manufacturers.length === 0) {
       container.innerHTML =
-        '<p style="text-align: center; color: #999;">No hay manufacturadoras creadas.</p>';
+        '<p style="text-align: center; color: #999;">No hay manufacturadoras creadas</p>';
       return;
     }
 
@@ -1096,7 +1096,7 @@ function setupEventListeners() {
           if (usageCount > 0) {
             if (
               !confirm(
-                `Esta manufacturadora está siendo usada por ${usageCount} coaster(s). ¿Seguro que quieres borrarla? Las coasters quedarán sin manufacturadora.`,
+                `Esta manufacturadora está siendo usada por ${usageCount} coaster(s). ¿Seguro que quieres borrarla? Las coasters quedarán sin manufacturadora`,
               )
             ) {
               return;
