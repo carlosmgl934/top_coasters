@@ -408,11 +408,12 @@ function initSortable() {
     forceFallback: true, // Use custom drag element instead of HTML5 DnD (smoother on mobile)
     fallbackClass: "sortable-drag", // Class for the fallback element
     fallbackOnBody: true, // Append to body to avoid overflow issues
+    fallbackTolerance: 5, // Avoid tiny accidental movements
 
-    // Scroll Tweaks for mobile
-    scroll: true,
-    scrollSensitivity: 100, // Reduced slightly to avoid accidental triggering
-    scrollSpeed: 20, // Faster scroll speed
+    // Scroll Tweaks - targeting the real scrolling container
+    scroll: document.querySelector(".content-area"),
+    scrollSensitivity: 150, // Higher sensitivity to detect edges better
+    scrollSpeed: 40, // Faster scroll for fluidity
     bubbleScroll: true, // Allow scrolling parent elements
 
     onEnd: async function (evt) {

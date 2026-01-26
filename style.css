@@ -6,12 +6,12 @@
 }
 .sortable-drag {
   cursor: grabbing;
-  opacity: 1;
-  background: #1e1e24; /* Keep bg to cover content behind */
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5); /* Deeper shadow */
-  transform: scale(1.05); /* Slightly bigger */
-  border: 2px solid var(--primary); /* Highlight border */
-  z-index: 10000 !important; /* Ensure on top */
+  opacity: 0.7; /* Lower opacity so it doesn't block the view completely */
+  background: #1e1e24;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  transform: scale(1.02); /* Subtler scale */
+  border: 2px solid var(--primary);
+  z-index: 10000 !important;
 }
 
 :root {
