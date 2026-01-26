@@ -380,19 +380,22 @@ function renderCoasterList() {
 let sortableInstance = null;
 
 function initSortable() {
-  const container = dom.views.coasters;
+  const container =
+    state.view === "coasters" ? dom.views.coasters : dom.views.parks;
 
   if (sortableInstance) {
     sortableInstance.destroy();
     sortableInstance = null;
   }
 
-  // Only enable if sorting by rank and no filters active
+  // Only enable if sorting by rank (for coasters) and no filters active
+  // For parks, we always allow sorting as they don't have filters.
   const canSort =
-    state.sortBy === "rank" &&
-    !state.filterPark &&
-    !state.filterMfg &&
-    !state.filterCountry;
+    state.view === "parks" ||
+    (state.sortBy === "rank" &&
+      !state.filterPark &&
+      !state.filterMfg &&
+      !state.filterCountry);
 
   if (!canSort) return;
 
@@ -400,31 +403,30 @@ function initSortable() {
     animation: 250,
     ghostClass: "sortable-ghost",
     dragClass: "sortable-drag",
-    chosenClass: "sortable-chosen", // Added chosen class
-    handle: ".coaster-card", // Make whole card draggable
+    chosenClass: "sortable-chosen",
+    handle: ".coaster-card",
 
     // Improved Mobile Touch
-    forceFallback: true, // Use custom drag element instead of HTML5 DnD (smoother on mobile)
-    fallbackClass: "sortable-drag", // Class for the fallback element
-    fallbackOnBody: true, // Append to body to avoid overflow issues
+    forceFallback: true,
+    fallbackClass: "sortable-drag",
+    fallbackOnBody: true,
     fallbackTolerance: 2,
-    delay: 1100, // 1.1 segundos para que el toque normal sea scroll
-    delayOnTouchOnly: true, // Solo aplica el delay en pantallas táctiles
-    touchStartThreshold: 5, // Tolerancia de movimiento del dedo antes de cancelar el delay
+    delay: 1100,
+    delayOnTouchOnly: true,
+    touchStartThreshold: 5,
 
-    // Scroll Tweaks - targeting the real scrolling container
+    // Scroll Tweaks
     scroll: document.querySelector(".content-area"),
-    scrollSensitivity: 50, // Much lower to only scroll when really at the edge
-    scrollSpeed: 20, // Slower speed for better control
+    scrollSensitivity: 50,
+    scrollSpeed: 20,
     bubbleScroll: true,
 
     // Precision Tweaks
-    swapThreshold: 0.7, // Target must be 70% covered to swap
-    invertSwap: true, // Better for fast movements
+    swapThreshold: 0.7,
+    invertSwap: true,
     direction: "vertical",
 
     onEnd: async function (evt) {
-      // Re-calculate ranks based on new DOM order
       await saveNewOrderFromDOM();
     },
   });
@@ -432,52 +434,50 @@ function initSortable() {
 
 // Function to save the new order based on current DOM state
 async function saveNewOrderFromDOM() {
-  const container = dom.views.coasters;
+  const isCoasters = state.view === "coasters";
+  const container = isCoasters ? dom.views.coasters : dom.views.parks;
   const cards = Array.from(container.querySelectorAll(".coaster-card"));
 
-  // Create a map for Rank 1..N
-  const storeName = "coasters";
+  const storeName = state.view; // 'coasters' or 'parks'
   const tx = db.transaction(storeName, "readwrite");
   const store = tx.objectStore(storeName);
 
-  // Update local state first to match visual
-  const newCoastersOrder = [];
+  const newList = [];
+  const listToSearch = isCoasters ? state.coasters : state.parks;
 
   for (let i = 0; i < cards.length; i++) {
     const card = cards[i];
-    const id = parseInt(card.dataset.id);
-    const item = state.coasters.find((c) => c.id === id);
+    const id = isCoasters ? parseInt(card.dataset.id) : card.dataset.id; // Parks use name as ID-like key in dataset if needed, but wait.
+    // Park cards don't have dataset.id by default in previous renderParkList. Let's fix that.
+
+    const item = listToSearch.find((x) =>
+      isCoasters ? x.id === id : x.name === card.dataset.name,
+    );
 
     if (item) {
-      // Update Rank
       item.rank = i + 1;
-
-      // Queue DB update
       store.put(item);
+      newList.push(item);
 
-      // Add to new list
-      newCoastersOrder.push(item);
-
-      // Visual badge update (instant)
+      // Visual badge update
       const badge = card.querySelector(".rank-badge");
       if (badge) {
         const flag = badge.querySelector(".flag-pop");
         const flagHTML = flag ? flag.outerHTML : "";
         badge.innerHTML = `${flagHTML} #${item.rank}`;
-
-        // Update visual rank style
         badge.classList.remove("rank-1", "rank-2", "rank-3");
         if (item.rank <= 3) badge.classList.add(`rank-${item.rank}`);
       }
     }
   }
 
-  // Update State
-  state.coasters = newCoastersOrder;
-  state.coasters.sort((a, b) => a.rank - b.rank);
+  if (isCoasters) {
+    state.coasters = newList;
+  } else {
+    state.parks = newList;
+  }
 
   await new Promise((r) => (tx.oncomplete = r));
-  // No need to renderApp() because DOM is already correct!
 }
 
 async function handleDragDrop(fromIndex, toIndex) {
@@ -523,9 +523,11 @@ function renderParkList() {
             </div>
         `;
       card.onclick = () => toggleSelection(park.name);
-    } else {
-      let reorderControls = getReorderControls(index, state.parks.length);
-      const rankClass = index + 1 <= 3 ? `rank-${index + 1}` : "";
+      const isSelected = state.selectedItems.has(park.name);
+      const card = document.createElement("div");
+      card.className = `coaster-card ${state.isDeleteMode && isSelected ? "selected" : ""}`;
+      card.dataset.name = park.name; // Crucial for reordering
+      card.style.height = "100px";
 
       card.innerHTML = `
             ${bgStyle}
@@ -549,6 +551,9 @@ function renderParkList() {
 
     dom.views.parks.appendChild(card);
   });
+
+  // Re-initialize Sortable for Parks
+  initSortable();
 }
 
 function getReorderControls(index, total) {
