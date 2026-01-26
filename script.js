@@ -404,9 +404,14 @@ function initSortable() {
     dragClass: "sortable-drag",
     handle: ".coaster-card", // Make whole card draggable
 
+    // Improved Mobile Touch
+    forceFallback: true, // Use custom drag element instead of HTML5 DnD (smoother on mobile)
+    fallbackClass: "sortable-drag", // Class for the fallback element
+    fallbackOnBody: true, // Append to body to avoid overflow issues
+
     // Scroll Tweaks for mobile
     scroll: true,
-    scrollSensitivity: 150, // Higher number = wider trigger area for scrolling
+    scrollSensitivity: 100, // Reduced slightly to avoid accidental triggering
     scrollSpeed: 20, // Faster scroll speed
     bubbleScroll: true, // Allow scrolling parent elements
 

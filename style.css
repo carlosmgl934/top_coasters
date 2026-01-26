@@ -7,9 +7,11 @@
 .sortable-drag {
   cursor: grabbing;
   opacity: 1;
-  background: #1e1e24;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
-  transform: scale(1.02);
+  background: #1e1e24; /* Keep bg to cover content behind */
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5); /* Deeper shadow */
+  transform: scale(1.05); /* Slightly bigger */
+  border: 2px solid var(--primary); /* Highlight border */
+  z-index: 10000 !important; /* Ensure on top */
 }
 
 :root {
