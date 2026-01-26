@@ -337,12 +337,24 @@ function renderCoasterList() {
             </div>
         `;
       card.onclick = () => toggleSelection(coaster.id);
+    } else {
+      let reorderControls = "";
+      if (
+        state.sortBy === "rank" &&
+        !state.filterPark &&
+        !state.filterMfg &&
+        !state.filterCountry
+      ) {
+        reorderControls = getReorderControls(index, state.coasters.length);
+      }
+
       const rankClass = displayRank <= 3 ? `rank-${displayRank}` : "";
       const nameClass = coaster.name.length > 20 ? "long-text" : "";
 
       card.innerHTML = `
             ${bgStyle}
             <div class="rank-badge ${rankClass}">${flagHtml} #${displayRank}</div>
+            ${reorderControls}
             <div class="card-content">
                 <div class="card-info">
                     <h3 class="${nameClass}">${coaster.name}</h3>
@@ -513,6 +525,7 @@ function renderParkList() {
         `;
       card.onclick = () => toggleSelection(park.name);
     } else {
+      const reorderControls = getReorderControls(index, state.parks.length);
       const rankClass = index + 1 <= 3 ? `rank-${index + 1}` : "";
 
       card.innerHTML = `
@@ -523,6 +536,7 @@ function renderParkList() {
                 </div>
                 ${park.visitCount ? `<span class="visit-badge">🎟️ Nº Visitas: ${park.visitCount}</span>` : ""}
             </div>
+            ${reorderControls}
             <div class="card-content">
                 <div class="card-info">
                   <h3>
@@ -539,6 +553,15 @@ function renderParkList() {
 
   // Re-initialize Sortable for Parks
   initSortable();
+}
+
+function getReorderControls(index, total) {
+  return `
+        <div class="reorder-controls">
+            <button class="reorder-btn up" onclick="moveItem(event, ${index}, -1)">▲</button>
+            <button class="reorder-btn down" onclick="moveItem(event, ${index}, 1)">▼</button>
+        </div>
+    `;
 }
 
 function toggleSelection(id) {
