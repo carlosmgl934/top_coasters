@@ -123,6 +123,13 @@ body {
   font-size: 13px;
   font-family: inherit;
   outline: none;
+  flex-shrink: 0; /* Prevent collapsing on mobile */
+  min-width: 100px; /* Ensure minimum visibility */
+}
+
+#filter-park {
+  max-width: 260px;
+  width: auto;
 }
 
 /* List Views */
@@ -884,10 +891,7 @@ body {
 }
 
 #filter-park {
-  max-width: 260px; /* significantly increased to fit "Todos los Parques" */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: 260px;
 }
 
 .coaster-card.mini .custom-text-bg {

@@ -674,6 +674,7 @@ window.editPark = (name) => {
 
   // Open Modal
   dom.modal.classList.remove("hidden");
+  dom.modal.classList.remove("center-modal"); // Reset to bottom sheet
   dom.forms.coaster.classList.add("hidden");
   dom.forms.mfg.classList.add("hidden");
 
@@ -782,9 +783,11 @@ function setupEventListeners() {
 
     // Prepare Modal based on View
     dom.modal.classList.remove("hidden");
+    dom.modal.classList.remove("center-modal"); // Bottom sheet for big forms
     dom.forms.coaster.classList.add("hidden");
     dom.forms.park.classList.add("hidden");
     dom.forms.mfg.classList.add("hidden");
+    dom.forms.model.classList.add("hidden");
 
     if (state.view === "coasters") {
       dom.modalTitle.textContent = "Añadir Coaster";
@@ -1003,6 +1006,7 @@ function setupEventListeners() {
     // Return to Coaster Form
     dom.forms.mfg.classList.add("hidden");
     dom.forms.coaster.classList.remove("hidden");
+    dom.modal.classList.remove("center-modal"); // Return to sheet
     dom.modalTitle.textContent = "Añadir Coaster";
     updateSelectOptions();
     dom.inputs.mfg.value = name; // Select the new one
@@ -1021,6 +1025,7 @@ function setupEventListeners() {
     // Return to Coaster Form
     dom.forms.model.classList.add("hidden");
     dom.forms.coaster.classList.remove("hidden");
+    dom.modal.classList.remove("center-modal"); // Return to sheet
     dom.modalTitle.textContent = "Añadir Coaster";
     updateSelectOptions();
     dom.inputs.model.value = name;
@@ -1476,6 +1481,7 @@ function setupEventListeners() {
     addNewMfgBtn.addEventListener("click", () => {
       settingsModal.classList.add("hidden");
       dom.modal.classList.remove("hidden");
+      dom.modal.classList.add("center-modal"); // Center small form
       dom.forms.coaster.classList.add("hidden");
       dom.forms.park.classList.add("hidden");
       dom.forms.mfg.classList.remove("hidden");
@@ -1490,6 +1496,7 @@ function setupEventListeners() {
     dom.addNewModelBtn.addEventListener("click", () => {
       settingsModal.classList.add("hidden");
       dom.modal.classList.remove("hidden");
+      dom.modal.classList.add("center-modal"); // Center small form
       dom.forms.coaster.classList.add("hidden");
       dom.forms.park.classList.add("hidden");
       dom.forms.mfg.classList.add("hidden");
@@ -1503,6 +1510,7 @@ function setupEventListeners() {
   // Handle Create New triggers from selects
   dom.inputs.mfg.addEventListener("change", (e) => {
     if (e.target.value === "new_mfg") {
+      dom.modal.classList.add("center-modal"); // Center small form
       dom.forms.coaster.classList.add("hidden");
       dom.forms.mfg.classList.remove("hidden");
       dom.modalTitle.textContent = "Crear Manufacturadora";
@@ -1513,6 +1521,7 @@ function setupEventListeners() {
 
   dom.inputs.model.addEventListener("change", (e) => {
     if (e.target.value === "new_model") {
+      dom.modal.classList.add("center-modal"); // Center small form
       dom.forms.coaster.classList.add("hidden");
       dom.forms.model.classList.remove("hidden");
       dom.modalTitle.textContent = "Crear Modelo";
@@ -1540,6 +1549,7 @@ window.editCoaster = (id) => {
   updateSelectOptions();
 
   dom.modal.classList.remove("hidden");
+  dom.modal.classList.remove("center-modal"); // Bottom sheet for editing
   dom.forms.park.classList.add("hidden");
   dom.forms.mfg.classList.add("hidden");
 
