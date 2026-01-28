@@ -4,7 +4,7 @@
 
 // --- Database Configuration ---
 const DB_NAME = "CoasterTopDB";
-const DB_VERSION = 2; // Incremented for robustness if needed, though schema is same logic
+const DB_VERSION = 3; // Incremented for models store
 let db;
 
 // --- State ---
@@ -13,8 +13,10 @@ const state = {
   coasters: [],
   parks: [],
   manufacturers: [],
+  models: [], // New: Models for coasters
   filterPark: "",
   filterMfg: "",
+  filterModel: "", // New: Model filter
   filterCountry: "",
   sortBy: "rank",
   isDeleteMode: false,
@@ -27,6 +29,7 @@ const state = {
 };
 
 let cropper; // Global cropper instance
+let activePhotoPreview = null; // Track which preview is active
 
 const countryFlags = {
   ES: "🇪🇸",
@@ -66,6 +69,10 @@ const dom = {
   title: document.getElementById("app-title"),
   filterBar: document.getElementById("filter-bar"),
   sortBySelect: document.getElementById("sort-by"),
+  filterPark: document.getElementById("filter-park"),
+  filterMfg: document.getElementById("filter-mfg"),
+  filterModel: document.getElementById("filter-model"), // New
+  filterCountry: document.getElementById("filter-country"),
 
   // Header Btns
   addBtn: document.getElementById("add-btn"),
@@ -80,6 +87,7 @@ const dom = {
     coaster: document.getElementById("coaster-form"),
     park: document.getElementById("park-form"),
     mfg: document.getElementById("mfg-form"),
+    model: document.getElementById("model-form"), // New
   },
 
   inputs: {
@@ -87,14 +95,37 @@ const dom = {
     height: document.getElementById("input-height"),
     park: document.getElementById("input-park"),
     mfg: document.getElementById("input-mfg"),
+    model: document.getElementById("input-model"), // New
     file: document.getElementById("photo-input"),
+    parkFile: document.getElementById("park-photo-input"), // New
     parkCountry: document.getElementById("park-country"), // New
   },
 
   parkName: document.getElementById("park-name"),
   mfgName: document.getElementById("mfg-name-input"),
+  modelName: document.getElementById("model-name-input"), // New
+
+  // Settings Modal Tabs/Sections
+  mfgTabBtn: document.getElementById("mfg-tab-btn"),
+  modelTabBtn: document.getElementById("model-tab-btn"),
+  mfgSection: document.getElementById("mfg-section"),
+  modelSection: document.getElementById("model-section"),
+  mfgList: document.getElementById("mfg-list-container"),
+  modelList: document.getElementById("model-list-container"),
+  addNewMfgBtn: document.getElementById("add-new-mfg-btn"),
+  addNewModelBtn: document.getElementById("add-new-model-btn"),
+  closeSettingsBtn: document.getElementById("close-settings-modal"),
+  settingsModal: document.getElementById("settings-modal"),
+  settingsBtn: document.getElementById("settings-btn"),
 
   photoPreview: document.getElementById("photo-preview"),
+  parkPhotoPreview: document.getElementById("park-photo-preview"),
+
+  // Text Bg Inputs
+  coasterBgCheck: document.getElementById("check-coaster-bg"),
+  coasterBgColor: document.getElementById("input-coaster-color"),
+  parkBgCheck: document.getElementById("check-park-bg"),
+  parkBgColor: document.getElementById("input-park-color"),
 
   // Confirm Modal
   confirmModal: document.getElementById("confirm-modal"),
@@ -108,6 +139,7 @@ const dom = {
 async function init() {
   await initDB();
   await loadData();
+  updateSelectOptions(); // Populate dropdowns before rendering
   renderApp();
   setupEventListeners();
 }
@@ -144,6 +176,9 @@ function initDB() {
       if (!db.objectStoreNames.contains("manufacturers")) {
         db.createObjectStore("manufacturers", { keyPath: "name" });
       }
+      if (!db.objectStoreNames.contains("models")) {
+        db.createObjectStore("models", { keyPath: "name" });
+      }
     };
 
     request.onsuccess = (e) => {
@@ -170,9 +205,36 @@ async function loadData() {
     state.manufacturers = await getAll("manufacturers");
   }
 
+  // Ensure "Desconocido" model exists
+  state.models = await getAll("models");
+  if (!state.models.find((m) => m.name === "Desconocido")) {
+    await addData("models", { name: "Desconocido" });
+    state.models = await getAll("models");
+  }
+
   // Initial sort by persistent rank (always load correct DB order)
   state.coasters.sort((a, b) => (a.rank || 0) - (b.rank || 0));
   state.parks.sort((a, b) => (a.rank || 0) - (b.rank || 0));
+
+  // DATA MIGRATION: Backfill missing 'modelo' with "Desconocido"
+  let migrationNeeded = false;
+  const tx = db.transaction("coasters", "readwrite");
+  const store = tx.objectStore("coasters");
+
+  for (const coaster of state.coasters) {
+    if (!coaster.modelo) {
+      coaster.modelo = "Desconocido";
+      store.put(coaster);
+      migrationNeeded = true;
+    }
+  }
+
+  if (migrationNeeded) {
+    await new Promise((resolve) => (tx.oncomplete = resolve));
+    // Reload coasters to ensure consistency
+    state.coasters = await getAll("coasters");
+    state.coasters.sort((a, b) => (a.rank || 0) - (b.rank || 0));
+  }
 }
 
 function getAll(storeName) {
@@ -230,22 +292,34 @@ function showAlert(title, message, btnText = "Vale") {
 function renderApp() {
   // Header State
   if (state.isDeleteMode) {
-    dom.trashBtn.textContent = "✔️"; // Click to confirm mass delete
-    dom.trashBtn.style.background = "#ff4757";
-    dom.title.textContent = `Borrar (${state.selectedItems.size})`;
-    dom.filterBar.classList.add("hidden");
+    if (dom.trashBtn) {
+      dom.trashBtn.textContent = "✔️"; // Click to confirm mass delete
+      dom.trashBtn.style.background = "#ff4757";
+    }
+    if (dom.title)
+      dom.title.textContent = `Borrar (${state.selectedItems.size})`;
+    if (dom.filterBar) dom.filterBar.classList.add("hidden");
   } else {
-    dom.trashBtn.textContent = "🗑️";
-    dom.trashBtn.style.background = "rgba(255, 255, 255, 0.1)";
+    if (dom.trashBtn) {
+      dom.trashBtn.textContent = "🗑️";
+      dom.trashBtn.style.background = "rgba(255, 255, 255, 0.1)";
+    }
 
     if (state.view === "coasters") {
-      dom.filterBar.classList.remove("hidden");
-      dom.title.textContent = "Top Coasters";
+      if (dom.filterBar) {
+        dom.filterBar.classList.remove("hidden");
+        // Force Sync Filters
+        if (dom.filterPark) dom.filterPark.value = state.filterPark;
+        if (dom.filterMfg) dom.filterMfg.value = state.filterMfg;
+        if (dom.filterModel) dom.filterModel.value = state.filterModel;
+        if (dom.filterCountry) dom.filterCountry.value = state.filterCountry;
+      }
+      if (dom.title) dom.title.textContent = "Top Coasters";
       const viewToggleBtn = document.getElementById("view-toggle-btn");
       if (viewToggleBtn) viewToggleBtn.style.display = "";
     } else {
-      dom.filterBar.classList.add("hidden");
-      dom.title.textContent = "Top Parques";
+      if (dom.filterBar) dom.filterBar.classList.add("hidden");
+      if (dom.title) dom.title.textContent = "Top Parques";
       const viewToggleBtn = document.getElementById("view-toggle-btn");
       if (viewToggleBtn) viewToggleBtn.style.display = "none";
     }
@@ -350,16 +424,25 @@ function renderCoasterList() {
     return;
   }
 
+  // --- FILTER ---
+  const filteredCoasters = displayList.filter((c) => {
+    const parkObj = state.parks.find((p) => p.name === c.park);
+    const coasterCountry = c.country || (parkObj ? parkObj.country : null);
+
+    const parkMatch = !state.filterPark || c.park === state.filterPark;
+    const mfgMatch = !state.filterMfg || c.mfg === state.filterMfg;
+    const modelMatch = !state.filterModel || c.modelo === state.filterModel; // New
+    const countryMatch =
+      !state.filterCountry || coasterCountry === state.filterCountry;
+    return parkMatch && mfgMatch && modelMatch && countryMatch;
+  });
+
   let displayRank = 0; // Counter for displayed cards only
 
-  displayList.forEach((coaster, index) => {
+  filteredCoasters.forEach((coaster, index) => {
     const parkObj = state.parks.find((p) => p.name === coaster.park);
     // Use coaster's country if present (for "Otro" park), otherwise use park's country
     const country = coaster.country || (parkObj ? parkObj.country : null);
-
-    if (state.filterPark && coaster.park !== state.filterPark) return;
-    if (state.filterMfg && coaster.mfg !== state.filterMfg) return;
-    if (state.filterCountry && country !== state.filterCountry) return;
 
     displayRank++; // Increment only for cards that pass filters
     const isSelected = state.selectedItems.has(coaster.id);
@@ -408,7 +491,7 @@ function renderCoasterList() {
             ${reorderControls}
             <div class="card-content">
                 <div class="card-info">
-                    <h3 class="${nameClass}">${coaster.name}</h3>
+                    <h3 class="${nameClass} coaster-title ${coaster.textBgColor ? "custom-text-bg" : ""}" style="${coaster.textBgColor ? `background-color: ${coaster.textBgColor}cc;` : ""}">${coaster.name}</h3>
                     <div class="card-meta">
                         <span class="pill">${coaster.park}</span>
                         <span class="pill">${coaster.mfg}</span>
@@ -445,11 +528,14 @@ function renderParkList() {
     card.dataset.name = park.name;
     card.style.height = "100px";
 
-    const bgStyle = `<div class="card-bg-img" style="background: linear-gradient(45deg, #FF512F, #DD2476);"></div>`;
+    let bgStyle = park.photo
+      ? `<img src="${park.photo}" class="card-bg-img" alt="${park.name}">`
+      : `<div class="card-bg-img" style="background: linear-gradient(45deg, #FF512F, #DD2476);"></div>`;
     const flag = park.country ? getFlag(park.country) : "";
     const flagHtml = flag ? `<span class="flag-pop">${flag}</span>` : "";
     const reorderControls = getReorderControls(index, displayParks.length);
     const rankClass = index + 1 <= 3 ? `rank-${index + 1}` : "";
+    const nameClass = park.name.length > 20 ? "long-text" : ""; // Add long-text class for long names
 
     if (state.isDeleteMode) {
       card.innerHTML = `
@@ -459,7 +545,7 @@ function renderParkList() {
             </div>
             <div class="card-content">
                 <div class="card-info">
-                  <h3>${park.name} ${flagHtml}</h3>
+                  <h3 class="park-title ${nameClass} ${park.textBgColor ? "custom-text-bg" : ""}" style="${park.textBgColor ? `background-color: ${park.textBgColor}cc;` : ""}">${park.name} ${flagHtml}</h3>
                   ${park.visitCount ? `<span class="visit-badge" style="margin-top: 5px;">🎟️ Nº Visitas: ${park.visitCount}</span>` : ""}
                 </div>
             </div>
@@ -477,7 +563,7 @@ function renderParkList() {
             ${reorderControls}
             <div class="card-content">
                 <div class="card-info">
-                  <h3>${park.name}</h3>
+                  <h3 class="park-title ${nameClass} ${park.textBgColor ? "custom-text-bg" : ""}" style="${park.textBgColor ? `background-color: ${park.textBgColor}cc;` : ""}">${park.name}</h3>
                 </div>
             </div>
         `;
@@ -596,8 +682,25 @@ window.editPark = (name) => {
 
   // Populate
   dom.parkName.value = park.name;
-  dom.parkName.value = park.name;
   dom.parkName.disabled = false;
+
+  // Photo
+  if (park.photo) {
+    dom.parkPhotoPreview.innerHTML = `<img src="${park.photo}" style="width:100%; height:100%; object-fit:cover; border-radius:12px;">`;
+    dom.parkPhotoPreview.dataset.tempSrc = park.photo;
+  } else {
+    dom.parkPhotoPreview.innerHTML = "<span>📷 Toca para añadir foto</span>";
+    dom.parkPhotoPreview.removeAttribute("data-temp-src");
+  }
+
+  // Populate Text Bg
+  if (park.textBgColor) {
+    dom.parkBgCheck.checked = true;
+    dom.parkBgColor.value = park.textBgColor;
+  } else {
+    dom.parkBgCheck.checked = false;
+    dom.parkBgColor.value = "#000000";
+  }
 
   // Populate Country
   updateSelectOptions();
@@ -689,13 +792,21 @@ function setupEventListeners() {
       dom.forms.coaster.reset();
       dom.photoPreview.innerHTML = "<span>📷 Toca para añadir foto</span>";
       dom.photoPreview.removeAttribute("data-temp-src");
+      // Reset text bg defaults
+      dom.coasterBgCheck.checked = false;
+      dom.coasterBgColor.value = "#000000";
       state.editingCoaster = null; // Clear edit
       updateSelectOptions(); // Ensure up to date
     } else {
       dom.modalTitle.textContent = "Añadir Parque";
       dom.forms.park.classList.remove("hidden");
       dom.forms.park.reset();
+      dom.parkPhotoPreview.innerHTML = "<span>📷 Toca para añadir foto</span>";
+      dom.parkPhotoPreview.removeAttribute("data-temp-src");
       dom.parkName.disabled = false; // Reset
+      // Reset text bg defaults
+      dom.parkBgCheck.checked = false;
+      dom.parkBgColor.value = "#000000";
       state.editingPark = null; // Clear edit mode
       updateSelectOptions(); // Ensure country list is populated
     }
@@ -742,12 +853,18 @@ function setupEventListeners() {
     const height = dom.inputs.height.value;
     const park = dom.inputs.park.value;
     const mfg = dom.inputs.mfg.value;
+    const modelo = dom.inputs.model.value; // New
     const photo = dom.photoPreview.dataset.tempSrc || null;
     const rankInput = document.getElementById("input-rank").value;
     const rideCount =
       parseInt(document.getElementById("input-ride-count").value) || 0;
     const coasterCountry =
       document.getElementById("coaster-country").value || null;
+
+    // Text Bg Logic
+    const textBgColor = dom.coasterBgCheck.checked
+      ? dom.coasterBgColor.value
+      : null;
 
     let targetRank = rankInput ? parseInt(rankInput) : null;
 
@@ -759,9 +876,12 @@ function setupEventListeners() {
         coaster.height = height;
         coaster.park = park;
         coaster.mfg = mfg;
+        coaster.modelo = modelo; // New
         coaster.rideCount = rideCount;
         coaster.country = coasterCountry;
         if (photo) coaster.photo = photo;
+        // Update bg
+        coaster.textBgColor = textBgColor;
 
         await handleRankUpdate("coasters", coaster, targetRank);
       }
@@ -772,9 +892,11 @@ function setupEventListeners() {
         height,
         park,
         mfg,
+        modelo, // New
         photo,
         rideCount,
         country: coasterCountry,
+        textBgColor: textBgColor,
       };
       await handleRankUpdate("coasters", newCoaster, targetRank, true);
     }
@@ -791,8 +913,12 @@ function setupEventListeners() {
     const country = dom.inputs.parkCountry.value;
     const visitCount =
       parseInt(document.getElementById("input-visit-count").value) || 0;
+    const photo = dom.parkPhotoPreview.dataset.tempSrc || null;
     const rankInput = document.getElementById("park-rank").value;
     let targetRank = rankInput ? parseInt(rankInput) : null;
+
+    // Text Bg Logic
+    const textBgColor = dom.parkBgCheck.checked ? dom.parkBgColor.value : null;
 
     if (state.editingPark) {
       // Edit Mode
@@ -825,7 +951,14 @@ function setupEventListeners() {
         await loadData();
 
         // Create New Park Entry with correct rank
-        const newPark = { ...oldPark, name, country, visitCount };
+        const newPark = {
+          ...oldPark,
+          name,
+          country,
+          visitCount,
+          photo,
+          textBgColor,
+        };
         // Treat as new to insert correctly
         await handleRankUpdate("parks", newPark, targetRank, true);
       } else {
@@ -834,6 +967,9 @@ function setupEventListeners() {
         if (park) {
           park.country = country;
           park.visitCount = visitCount;
+          if (photo) park.photo = photo;
+          // Update bg
+          park.textBgColor = textBgColor;
           await handleRankUpdate("parks", park, targetRank);
         }
       }
@@ -843,7 +979,7 @@ function setupEventListeners() {
         showAlert("¡Ups!", "¡El parque ya existe!");
         return;
       }
-      const newPark = { name, country, visitCount };
+      const newPark = { name, country, visitCount, photo, textBgColor };
       await handleRankUpdate("parks", newPark, targetRank, true);
     }
 
@@ -872,6 +1008,24 @@ function setupEventListeners() {
     dom.inputs.mfg.value = name; // Select the new one
   });
 
+  dom.forms.model.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = dom.modelName.value;
+    if (state.models.find((m) => m.name === name)) {
+      showAlert("¡Ups!", "¡Este modelo ya existe!");
+      return;
+    }
+    await addData("models", { name });
+    await loadData();
+
+    // Return to Coaster Form
+    dom.forms.model.classList.add("hidden");
+    dom.forms.coaster.classList.remove("hidden");
+    dom.modalTitle.textContent = "Añadir Coaster";
+    updateSelectOptions();
+    dom.inputs.model.value = name;
+  });
+
   // Close
   dom.closeModal.addEventListener("click", () =>
     dom.modal.classList.add("hidden"),
@@ -895,11 +1049,11 @@ function setupEventListeners() {
     renderApp();
   });
 
-  // Photo
   // Photo - Intercept for Cropper
-  dom.inputs.file.addEventListener("change", function (e) {
+  const handlePhotoSelect = (e, previewElement) => {
     const file = e.target.files[0];
     if (file) {
+      activePhotoPreview = previewElement; // Set active target
       const reader = new FileReader();
       reader.onload = (e) => {
         // Show Crop Modal
@@ -931,7 +1085,14 @@ function setupEventListeners() {
     }
     // Reset value to allow re-selecting same file if canceled
     e.target.value = "";
-  });
+  };
+
+  dom.inputs.file.addEventListener("change", (e) =>
+    handlePhotoSelect(e, dom.photoPreview),
+  );
+  dom.inputs.parkFile.addEventListener("change", (e) =>
+    handlePhotoSelect(e, dom.parkPhotoPreview),
+  );
 
   // Crop Modal Actions
   document.getElementById("crop-cancel-btn").addEventListener("click", () => {
@@ -950,8 +1111,10 @@ function setupEventListeners() {
     const croppedDataUrl = canvas.toDataURL("image/jpeg", 0.95);
 
     // Initial Preview Update
-    dom.photoPreview.innerHTML = `<img src="${croppedDataUrl}" style="width:100%; height:100%; object-fit:cover; border-radius:12px;">`;
-    dom.photoPreview.dataset.tempSrc = croppedDataUrl;
+    if (activePhotoPreview) {
+      activePhotoPreview.innerHTML = `<img src="${croppedDataUrl}" style="width:100%; height:100%; object-fit:cover; border-radius:12px;">`;
+      activePhotoPreview.dataset.tempSrc = croppedDataUrl;
+    }
 
     // Close
     document.getElementById("crop-modal").classList.add("hidden");
@@ -984,6 +1147,7 @@ function setupEventListeners() {
         coasters: state.coasters,
         parks: state.parks,
         manufacturers: state.manufacturers,
+        models: state.models, // New
         exportDate: new Date().toISOString(),
       };
 
@@ -1168,9 +1332,136 @@ function setupEventListeners() {
     });
   }
 
+  function renderModelList() {
+    const container = document.getElementById("model-list-container");
+    container.innerHTML = "";
+
+    if (state.models.length === 0) {
+      container.innerHTML =
+        '<p style="text-align: center; color: #999;">No hay modelos creados</p>';
+      return;
+    }
+
+    state.models
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach((model) => {
+        if (model.name === "Desconocido") return;
+
+        const item = document.createElement("div");
+        item.className = "mfg-item"; // Reuse same styling
+
+        const usageCount = state.coasters.filter(
+          (c) => c.modelo === model.name,
+        ).length;
+
+        item.innerHTML = `
+        <div class="mfg-item-name">${model.name} <span style="color: #999; font-size: 12px;">(${usageCount} coasters)</span></div>
+        <div class="mfg-item-actions">
+          <button class="mfg-item-btn" data-model="${model.name}">✏️ Editar</button>
+          <button class="mfg-item-btn delete" data-model="${model.name}">🗑️ Borrar</button>
+        </div>
+      `;
+
+        // Edit button
+        item
+          .querySelector(".mfg-item-btn:not(.delete)")
+          .addEventListener("click", async () => {
+            const newName = prompt(`Renombrar "${model.name}" a:`, model.name);
+            if (!newName || newName === model.name) return;
+
+            if (state.models.find((m) => m.name === newName)) {
+              alert("¡Ya existe un modelo con ese nombre!");
+              return;
+            }
+
+            // Update model
+            const tx = db.transaction("models", "readwrite");
+            const store = tx.objectStore("models");
+            store.delete(model.name);
+            store.put({ name: newName });
+
+            // Update all coasters using this model
+            const coastersToUpdate = state.coasters.filter(
+              (c) => c.modelo === model.name,
+            );
+            if (coastersToUpdate.length > 0) {
+              const coasterTx = db.transaction("coasters", "readwrite");
+              const coasterStore = coasterTx.objectStore("coasters");
+              coastersToUpdate.forEach((c) => {
+                c.modelo = newName;
+                coasterStore.put(c);
+              });
+              await new Promise((r) => (coasterTx.oncomplete = r));
+            }
+
+            await new Promise((r) => (tx.oncomplete = r));
+            await loadData();
+            renderModelList();
+            updateSelectOptions();
+          });
+
+        // Delete button
+        item
+          .querySelector(".mfg-item-btn.delete")
+          .addEventListener("click", async () => {
+            if (usageCount > 0) {
+              if (
+                !confirm(
+                  `Este modelo está siendo usado por ${usageCount} coaster(s). ¿Seguro que quieres borrarlo? Las coasters quedarán sin modelo asignado.`,
+                )
+              ) {
+                return;
+              }
+            }
+
+            const tx = db.transaction("models", "readwrite");
+            const store = tx.objectStore("models");
+            store.delete(model.name);
+            await new Promise((r) => (tx.oncomplete = r));
+            await loadData();
+            renderModelList();
+            updateSelectOptions();
+          });
+
+        container.appendChild(item);
+      });
+  }
+
+  // --- TAB SWITCHING ---
+  if (dom.mfgTabBtn) {
+    dom.mfgTabBtn.addEventListener("click", () => {
+      dom.mfgSection.classList.remove("hidden");
+      dom.modelSection.classList.add("hidden");
+      dom.mfgTabBtn.style.background = "#5e6ad2";
+      dom.mfgTabBtn.style.color = "white";
+      dom.modelTabBtn.style.background = "";
+      dom.modelTabBtn.style.color = "";
+      renderMfgList();
+    });
+  }
+
+  if (dom.modelTabBtn) {
+    dom.modelTabBtn.addEventListener("click", () => {
+      dom.modelSection.classList.remove("hidden");
+      dom.mfgSection.classList.add("hidden");
+      dom.modelTabBtn.style.background = "#5e6ad2";
+      dom.modelTabBtn.style.color = "white";
+      dom.mfgTabBtn.style.background = "";
+      dom.mfgTabBtn.style.color = "";
+      renderModelList();
+    });
+  }
+
   if (settingsBtn) {
     settingsBtn.addEventListener("click", () => {
       settingsModal.classList.remove("hidden");
+      // Default to mfg tab
+      dom.mfgSection.classList.remove("hidden");
+      dom.modelSection.classList.add("hidden");
+      dom.mfgTabBtn.style.background = "#5e6ad2";
+      dom.mfgTabBtn.style.color = "white";
+      dom.modelTabBtn.style.background = "";
+      dom.modelTabBtn.style.color = "";
       renderMfgList();
     });
   }
@@ -1188,9 +1479,53 @@ function setupEventListeners() {
       dom.forms.coaster.classList.add("hidden");
       dom.forms.park.classList.add("hidden");
       dom.forms.mfg.classList.remove("hidden");
+      dom.forms.model.classList.add("hidden");
       dom.modalTitle.textContent = "Crear Manufacturadora";
       dom.mfgName.value = "";
       dom.mfgName.focus();
+    });
+  }
+
+  if (dom.addNewModelBtn) {
+    dom.addNewModelBtn.addEventListener("click", () => {
+      settingsModal.classList.add("hidden");
+      dom.modal.classList.remove("hidden");
+      dom.forms.coaster.classList.add("hidden");
+      dom.forms.park.classList.add("hidden");
+      dom.forms.mfg.classList.add("hidden");
+      dom.forms.model.classList.remove("hidden");
+      dom.modalTitle.textContent = "Crear Modelo";
+      dom.modelName.value = "";
+      dom.modelName.focus();
+    });
+  }
+
+  // Handle Create New triggers from selects
+  dom.inputs.mfg.addEventListener("change", (e) => {
+    if (e.target.value === "new_mfg") {
+      dom.forms.coaster.classList.add("hidden");
+      dom.forms.mfg.classList.remove("hidden");
+      dom.modalTitle.textContent = "Crear Manufacturadora";
+      dom.mfgName.value = "";
+      dom.mfgName.focus();
+    }
+  });
+
+  dom.inputs.model.addEventListener("change", (e) => {
+    if (e.target.value === "new_model") {
+      dom.forms.coaster.classList.add("hidden");
+      dom.forms.model.classList.remove("hidden");
+      dom.modalTitle.textContent = "Crear Modelo";
+      dom.modelName.value = "";
+      dom.modelName.focus();
+    }
+  });
+
+  // Filter listener for models
+  if (dom.filterModel) {
+    dom.filterModel.addEventListener("change", (e) => {
+      state.filterModel = e.target.value;
+      renderApp();
     });
   }
 }
@@ -1216,7 +1551,20 @@ window.editCoaster = (id) => {
   dom.inputs.height.value = coaster.height;
   dom.inputs.park.value = coaster.park;
   dom.inputs.mfg.value = coaster.mfg;
-  document.getElementById("input-rank").value = coaster.rank;
+  if (dom.inputs.model && coaster.modelo) {
+    dom.inputs.model.value = coaster.modelo;
+  }
+  // Populate Rank
+  document.getElementById("input-rank").value = coaster.rank || "";
+
+  // Populate Text Bg
+  if (coaster.textBgColor) {
+    dom.coasterBgCheck.checked = true;
+    dom.coasterBgColor.value = coaster.textBgColor;
+  } else {
+    dom.coasterBgCheck.checked = false;
+    dom.coasterBgColor.value = "#000000";
+  }
   document.getElementById("input-ride-count").value = coaster.rideCount || 0;
 
   // Handle coaster country if park is "Otro"
@@ -1255,6 +1603,8 @@ function updateSelectOptions() {
   // Preserve current selection
   const pVal = pSelect.value;
   const mVal = mSelect.value;
+  const modSelect = dom.inputs.model;
+  const modVal = modSelect ? modSelect.value : "";
   const cVal = cSelect ? cSelect.value : "";
 
   pSelect.innerHTML =
@@ -1270,6 +1620,51 @@ function updateSelectOptions() {
       .join("") +
     '<option value="new_mfg">+ Crear Nueva...</option>';
 
+  if (modSelect) {
+    modSelect.innerHTML =
+      '<option value="" disabled selected>Selecciona Modelo...</option>' +
+      state.models
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((m) => `<option value="${m.name}">${m.name}</option>`)
+        .join("") +
+      '<option value="new_model">+ Crear Nuevo...</option>';
+  }
+
+  // Update Filters
+  // Update Filters
+  const fPark = document.getElementById("filter-park");
+  const fMfg = document.getElementById("filter-mfg");
+  const fModel = document.getElementById("filter-model");
+
+  if (fPark) {
+    fPark.innerHTML =
+      '<option value="">Todos los Parques</option>' +
+      state.parks
+        .filter((p) => p.name !== "Otro")
+        .map((p) => `<option value="${p.name}">${p.name}</option>`)
+        .join("");
+    fPark.value = state.filterPark || "";
+  }
+
+  if (fMfg) {
+    fMfg.innerHTML =
+      '<option value="">Todas las Manufacturadoras</option>' +
+      state.manufacturers
+        .map((m) => `<option value="${m.name}">${m.name}</option>`)
+        .join("");
+    fMfg.value = state.filterMfg || "";
+  }
+
+  if (fModel) {
+    fModel.innerHTML =
+      '<option value="">Todos los Modelos</option>' +
+      state.models
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((m) => `<option value="${m.name}">${m.name}</option>`)
+        .join("");
+    fModel.value = state.filterModel || "";
+  }
+
   // Update Park Country Select
   if (cSelect) {
     cSelect.innerHTML =
@@ -1284,6 +1679,7 @@ function updateSelectOptions() {
   // Restore selection if valid
   if (pVal) pSelect.value = pVal;
   if (mVal) mSelect.value = mVal;
+  if (modVal && modSelect) modSelect.value = modVal;
   if (cVal && cSelect) cSelect.value = cVal;
 }
 

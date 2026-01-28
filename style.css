@@ -277,10 +277,20 @@ body {
 .card-content {
   position: relative;
   z-index: 2;
-  padding: 16px;
+  padding: 16px; /* Default */
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
+}
+
+/* Park cards - push text down */
+.coaster-card[data-name] .card-content {
+  padding: 4px 16px 4px; /* Lowered even more */
+}
+
+/* Coaster cards - minimal padding */
+.coaster-card:not([data-name]) .card-content {
+  padding: 12px 16px 10px; /* Balanced, no extra bottom padding */
 }
 
 .rank-badge {
@@ -650,7 +660,7 @@ body {
 .coaster-card.mini .card-content {
   padding: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* Push text UP in mini view */
   justify-content: center;
   height: 100%;
 }
@@ -659,6 +669,10 @@ body {
   text-align: center;
   width: 100%;
   padding: 0 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 24px; /* Lower the text by reducing top margin */
 }
 
 .coaster-card.mini .card-info h3 {
@@ -678,6 +692,26 @@ body {
   top: 50%;
   transform: translateY(-50%);
   gap: 2px;
+}
+
+/* Mini Card Title Overrides */
+.coaster-card.mini .park-title,
+.coaster-card.mini .coaster-title {
+  width: auto !important; /* Hug content */
+  display: inline-block !important; /* Necessary for auto width to work */
+  max-width: 90%;
+  padding: 0px 8px !important; /* ZERO vertical padding */
+  margin: 0 !important;
+  line-height: 1.1 !important; /* Slightly looser for multiline */
+  white-space: normal; /* Allow wrapping for long names */
+  overflow: visible; /* Show full text */
+  text-align: center; /* Center multiline text */
+}
+
+/* Smaller font for long park names */
+.park-title.long-text {
+  font-size: 19px !important;
+  letter-spacing: 0.5px !important;
 }
 
 .coaster-card.mini .reorder-btn {
@@ -798,6 +832,83 @@ body {
   font-family: "Outfit", sans-serif;
   appearance: textfield;
   -moz-appearance: textfield;
+}
+
+/* Park Specific Styles */
+.park-title {
+  font-size: 24px !important;
+  font-weight: 400 !important; /* Bangers is already bold, use normal weight */
+  font-family: "Bangers", cursive;
+  text-transform: uppercase;
+  text-align: center;
+  letter-spacing: 2px; /* Increased for display font */
+  /* Stronger darker neon glow */
+  text-shadow:
+    0 0 10px rgba(0, 0, 0, 0.9),
+    0 0 20px rgba(0, 0, 0, 0.9),
+    0 0 30px rgba(0, 0, 0, 0.9),
+    0 4px 4px rgba(0, 0, 0, 0.5);
+  display: inline-block; /* Support bg color hugging */
+}
+
+/* Coaster Specific Styles */
+.coaster-title {
+  font-size: 22px !important;
+  font-weight: 400 !important; /* Bangers is already bold, use normal weight */
+  font-family: "Bangers", cursive;
+  text-align: center;
+  letter-spacing: 1.5px; /* Increased for display font */
+  text-shadow:
+    0 0 10px rgba(0, 0, 0, 0.9),
+    0 0 20px rgba(0, 0, 0, 0.9),
+    0 0 30px rgba(0, 0, 0, 0.9),
+    0 4px 4px rgba(0, 0, 0, 0.5);
+  display: inline-block; /* Support bg color hugging */
+}
+
+.coaster-title.long-text {
+  font-size: 16px !important;
+}
+
+/* Enhanced Custom Text Background */
+.custom-text-bg {
+  display: inline-block !important;
+  padding: 0px 8px !important; /* Reduced padding as requested */
+  border-radius: 6px !important; /* Reduced radius as requested */
+  backdrop-filter: blur(8px) saturate(1.2);
+  -webkit-backdrop-filter: blur(8px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
+  line-height: 1.4 !important;
+  transition: all 0.3s ease;
+}
+
+#filter-park {
+  max-width: 200px; /* Slight increase as requested */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.coaster-card.mini .custom-text-bg {
+  padding: 0px 4px !important; /* Even less for mini view */
+  border-radius: 6px !important;
+  border-width: 0.5px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Center alignment for ALL cards (Parks and Coasters) */
+.coaster-card .card-info {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.coaster-card .card-content {
+  justify-content: center;
 }
 
 .stepper-input::-webkit-outer-spin-button,

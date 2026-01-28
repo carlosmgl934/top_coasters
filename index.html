@@ -21,7 +21,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Bangers&display=swap"
       rel="stylesheet"
     />
     <!-- Cropper.js CSS -->
@@ -59,6 +59,9 @@
         </select>
         <select id="filter-mfg">
           <option value="">Todas las Manufacturadoras</option>
+        </select>
+        <select id="filter-model">
+          <option value="">Todos los Modelos</option>
         </select>
       </div>
 
@@ -150,6 +153,17 @@
               </div>
             </div>
 
+            <!-- 5. MODEL -->
+            <div class="form-group">
+              <label>Modelo</label>
+              <div class="autocomplete-wrapper">
+                <select id="input-model" required>
+                  <option value="" disabled selected> Selecciona Modelo... </option>
+                  <option value="new">+ Crear Nuevo...</option>
+                </select>
+              </div>
+            </div>
+
             <!-- 5. HEIGHT -->
             <div class="form-group">
               <label>Altura (m) <small>(OPCIONAL)</small></label>
@@ -183,6 +197,18 @@
               />
             </div>
 
+            <!-- TEXT BACKGROUND COLOR -->
+            <div class="form-group">
+              <label>Fondo del Texto</label>
+              <div style="display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 12px;">
+                <input type="checkbox" id="check-coaster-bg" style="width: 20px; height: 20px; accent-color: #5e6ad2; margin: 0;">
+                <label for="check-coaster-bg" style="margin: 0; font-size: 14px; flex: 1; cursor: pointer;">Activar Fondo</label>
+                <input type="color" id="input-coaster-color" value="#000000" style="width: 50px; height: 30px; border: none; padding: 0; background: none; cursor: pointer;">
+              </div>
+            </div>
+
+
+
             <div class="form-actions">
               <button type="submit" class="btn-primary">Guardar Coaster</button>
             </div>
@@ -190,6 +216,16 @@
 
           <!-- PARK FORM (Hidden by default, shown when adding park) -->
           <form id="park-form" class="hidden">
+              <div class="form-group photo-upload-group">
+                <label
+                  for="park-photo-input"
+                  class="photo-placeholder"
+                  id="park-photo-preview"
+                >
+                  <span>📷 Toca para añadir foto</span>
+                </label>
+                <input type="file" id="park-photo-input" accept="image/*" hidden />
+              </div>
             <div class="form-group">
               <label>Nombre del Parque</label>
               <input
@@ -199,6 +235,16 @@
                 required
                 autocomplete="off"
               />
+            </div>           
+
+            <!-- TEXT BACKGROUND COLOR -->
+            <div class="form-group">
+              <label>Fondo del Texto</label>
+              <div style="display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 12px;">
+                <input type="checkbox" id="check-park-bg" style="width: 20px; height: 20px; accent-color: #5e6ad2; margin: 0;">
+                <label for="check-park-bg" style="margin: 0; font-size: 14px; flex: 1; cursor: pointer;">Activar Fondo</label>
+                <input type="color" id="input-park-color" value="#000000" style="width: 50px; height: 30px; border: none; padding: 0; background: none; cursor: pointer;">
+              </div>
             </div>
             <div class="form-group">
               <label>País</label>
@@ -242,6 +288,25 @@
             <div class="form-actions">
               <button type="submit" class="btn-primary">
                 Guardar Manufacturadora
+              </button>
+            </div>
+          </form>
+
+          <!-- MODEL FORM (Hidden by default, for quick add) -->
+          <form id="model-form" class="hidden">
+            <div class="form-group">
+              <label>Nombre del Modelo</label>
+              <input
+                type="text"
+                id="model-name-input"
+                placeholder="Ej: Mega Lite"
+                required
+                autocomplete="off"
+              />
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn-primary">
+                Guardar Modelo
               </button>
             </div>
           </form>
@@ -292,15 +357,33 @@
     <div id="settings-modal" class="modal center-modal hidden" style="z-index: 2000;">
       <div class="modal-content glass-panel" style="max-width: 90%; width: 400px;">
         <span class="close-modal" id="close-settings-modal">&times;</span>
-        <h2 style="margin-bottom: 20px;">Gestionar Manufacturadoras</h2>
+        <h2 style="margin-bottom: 20px;">Gestionar Manufacturadoras y Modelos</h2>
         
-        <div id="mfg-list-container" style="max-height: 400px; overflow-y: auto; margin-bottom: 20px;">
-          <!-- Manufacturer list will be dynamically populated -->
+        <!-- Tab Buttons -->
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+          <button id="mfg-tab-btn" class="btn-secondary" style="flex: 1; background: #5e6ad2; color: white;">Manufacturadoras</button>
+          <button id="model-tab-btn" class="btn-secondary" style="flex: 1;">Modelos</button>
         </div>
         
-        <button id="add-new-mfg-btn" class="btn-primary" style="width: 100%; background: #5e6ad2;">
-          + Añadir Nueva
-        </button>
+        <!-- Manufacturers Section -->
+        <div id="mfg-section">
+          <div id="mfg-list-container" style="max-height: 400px; overflow-y: auto; margin-bottom: 20px;">
+            <!-- Manufacturer list will be dynamically populated -->
+          </div>
+          <button id="add-new-mfg-btn" class="btn-primary" style="width: 100%; background: #5e6ad2;">
+            + Añadir Nueva Manufacturadora
+          </button>
+        </div>
+        
+        <!-- Models Section -->
+        <div id="model-section" class="hidden">
+          <div id="model-list-container" style="max-height: 400px; overflow-y: auto; margin-bottom: 20px;">
+            <!-- Model list will be dynamically populated -->
+          </div>
+          <button id="add-new-model-btn" class="btn-primary" style="width: 100%; background: #5e6ad2;">
+            + Añadir Nuevo Modelo
+          </button>
+        </div>
       </div>
     </div>
 
