@@ -884,7 +884,7 @@ body {
 }
 
 #filter-park {
-  max-width: 200px; /* Slight increase as requested */
+  max-width: 260px; /* significantly increased to fit "Todos los Parques" */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
