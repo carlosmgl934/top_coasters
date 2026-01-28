@@ -1190,7 +1190,7 @@ function setupEventListeners() {
 
           const confirmed = await showConfirm(
             "¿Importar Datos?",
-            `Se importarán:\n- ${importedData.coasters?.length || 0} Coasters\n- ${importedData.parks?.length || 0} Parques\n\nEsto fusionará/sobrescribirá datos`,
+            `Se importarán:\n- ${importedData.coasters?.length || 0} Coasters\n- ${importedData.parks?.length || 0} Parques\n- ${importedData.models?.length || 0} Modelos\n\nEsto fusionará/sobrescribirá datos`,
             "Importar",
             "#e67e22",
           );
@@ -1209,6 +1209,11 @@ function setupEventListeners() {
           if (importedData.manufacturers) {
             for (const m of importedData.manufacturers) {
               await addData("manufacturers", m);
+            }
+          }
+          if (importedData.models) {
+            for (const m of importedData.models) {
+              await addData("models", m);
             }
           }
           if (importedData.coasters) {
