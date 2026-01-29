@@ -93,6 +93,7 @@ const dom = {
     mfg: document.getElementById("mfg-form"),
     model: document.getElementById("model-form"), // New
   },
+  coasterSubmitBtn: document.getElementById("coaster-submit-btn"),
 
   inputs: {
     name: document.getElementById("input-name"),
@@ -962,6 +963,11 @@ function setupEventListeners() {
       dom.modalTitle.textContent = isFlat
         ? "Añadir Atracción Plana"
         : "Añadir Coaster";
+      if (dom.coasterSubmitBtn) {
+        dom.coasterSubmitBtn.textContent = isFlat
+          ? "Guardar Flat"
+          : "Guardar Coaster";
+      }
       dom.forms.coaster.classList.remove("hidden");
       dom.forms.coaster.reset();
       dom.photoPreview.innerHTML = "<span>📷 Toca para añadir foto</span>";
@@ -1793,6 +1799,11 @@ window.editCoaster = (id) => {
 
   dom.forms.coaster.classList.remove("hidden");
   dom.modalTitle.textContent = isFlat ? "Editar Flat Ride" : "Editar Coaster";
+  if (dom.coasterSubmitBtn) {
+    dom.coasterSubmitBtn.textContent = isFlat
+      ? "Guardar Flat"
+      : "Guardar Coaster";
+  }
 
   // Populate Values
   dom.inputs.name.value = coaster.name;
