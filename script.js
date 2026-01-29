@@ -380,8 +380,24 @@ function renderApp() {
   }
 
   if (state.view === "coasters") {
+    if (dom.views.coasters) {
+      dom.views.coasters.classList.remove("hidden");
+      dom.views.coasters.classList.add("active");
+    }
+    if (dom.views.parks) {
+      dom.views.parks.classList.add("hidden");
+      dom.views.parks.classList.remove("active");
+    }
     renderCoasterList();
   } else {
+    if (dom.views.coasters) {
+      dom.views.coasters.classList.add("hidden");
+      dom.views.coasters.classList.remove("active");
+    }
+    if (dom.views.parks) {
+      dom.views.parks.classList.remove("hidden");
+      dom.views.parks.classList.add("active");
+    }
     renderParkList();
   }
 
@@ -537,7 +553,7 @@ function renderCoasterList() {
         !state.filterMfg &&
         !state.filterCountry
       ) {
-        reorderControls = getReorderControls(index, state.coasters.length);
+        reorderControls = getReorderControls(index, currentList.length);
       }
 
       const rankClass = displayRank <= 3 ? `rank-${displayRank}` : "";
