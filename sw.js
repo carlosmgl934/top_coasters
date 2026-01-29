@@ -1,4 +1,4 @@
-const CACHE_NAME = "coaster-top-v30";
+const CACHE_NAME = "coaster-top-v31";
 const ASSETS = [
   "./",
   "./index.html",

@@ -345,7 +345,7 @@ function renderApp() {
         dom.title.textContent =
           state.coasterOrFlatsView === "coasters"
             ? "Top Coasters"
-            : "Top Flats 🎠";
+            : "Top Flats";
       }
       const viewToggleBtn = document.getElementById("view-toggle-btn");
       if (viewToggleBtn) viewToggleBtn.style.display = "";
@@ -800,12 +800,9 @@ function setupEventListeners() {
 
   if (coasterNavBtn && dropdownMenu) {
     coasterNavBtn.addEventListener("click", (e) => {
-      // If we're already in coasters view, toggle dropdown
-      if (state.view === "coasters") {
-        e.stopPropagation(); // Prevent normal navigation
-        dropdownMenu.classList.toggle("hidden");
-      }
-      // If we're in parks view, let normal navigation happen (handled below)
+      // Always toggle dropdown when clicking coaster nav button
+      e.stopPropagation(); // Prevent normal navigation
+      dropdownMenu.classList.toggle("hidden");
     });
 
     // Dropdown item selection
@@ -820,6 +817,21 @@ function setupEventListeners() {
         // Update nav button text
         coasterNavBtn.querySelector("span").textContent =
           selectedView === "coasters" ? "🎢 Coasters" : "🎠 Flats";
+
+        // If we're in parks view, switch to coasters view
+        if (state.view === "parks") {
+          state.view = "coasters";
+
+          // Update nav buttons
+          dom.navItems.forEach((b) => b.classList.remove("active"));
+          coasterNavBtn.classList.add("active");
+
+          // Switch views
+          dom.views.parks.classList.add("hidden");
+          dom.views.parks.classList.remove("active");
+          dom.views.coasters.classList.remove("hidden");
+          dom.views.coasters.classList.add("active");
+        }
 
         // Clear filters when switching
         state.filterPark = "";
@@ -855,7 +867,7 @@ function setupEventListeners() {
   dom.navItems.forEach((btn) => {
     btn.addEventListener("click", () => {
       // Special handling for coaster button - dropdown is handled separately above
-      if (btn.id === "coaster-nav-btn" && state.view === "coasters") {
+      if (btn.id === "coaster-nav-btn") {
         return; // Dropdown toggle is handled in the separate listener above
       }
 
