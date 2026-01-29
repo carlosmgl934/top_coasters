@@ -4,13 +4,15 @@
 
 // --- Database Configuration ---
 const DB_NAME = "CoasterTopDB";
-const DB_VERSION = 3; // Incremented for models store
+const DB_VERSION = 4; // Incremented for flats store
 let db;
 
 // --- State ---
 const state = {
   view: "coasters", // 'coasters' or 'parks'
+  coasterOrFlatsView: "coasters", // 'coasters' or 'flats' - sub-view within coasters tab
   coasters: [],
+  flats: [], // New: Flat rides (no height)
   parks: [],
   manufacturers: [],
   models: [], // New: Models for coasters
@@ -179,6 +181,13 @@ function initDB() {
       if (!db.objectStoreNames.contains("models")) {
         db.createObjectStore("models", { keyPath: "name" });
       }
+      if (!db.objectStoreNames.contains("flats")) {
+        const flatStore = db.createObjectStore("flats", {
+          keyPath: "id",
+          autoIncrement: true,
+        });
+        flatStore.createIndex("rank", "rank", { unique: false });
+      }
     };
 
     request.onsuccess = (e) => {
@@ -190,6 +199,7 @@ function initDB() {
 
 async function loadData() {
   state.coasters = await getAll("coasters");
+  state.flats = await getAll("flats");
   state.parks = await getAll("parks");
 
   // Ensure "Otro" park exists for loose coasters
@@ -214,6 +224,7 @@ async function loadData() {
 
   // Initial sort by persistent rank (always load correct DB order)
   state.coasters.sort((a, b) => (a.rank || 0) - (b.rank || 0));
+  state.flats.sort((a, b) => (a.rank || 0) - (b.rank || 0));
   state.parks.sort((a, b) => (a.rank || 0) - (b.rank || 0));
 
   // DATA MIGRATION: Backfill missing 'modelo' with "Desconocido"
@@ -313,8 +324,29 @@ function renderApp() {
         if (dom.filterMfg) dom.filterMfg.value = state.filterMfg;
         if (dom.filterModel) dom.filterModel.value = state.filterModel;
         if (dom.filterCountry) dom.filterCountry.value = state.filterCountry;
+
+        // Hide/show height sort option based on sub-view
+        const heightOption = dom.sortBySelect.querySelector(
+          'option[value="height"]',
+        );
+        if (heightOption) {
+          heightOption.style.display =
+            state.coasterOrFlatsView === "flats" ? "none" : "";
+        }
+        // Reset to rank if on flats and height was selected
+        if (state.coasterOrFlatsView === "flats" && state.sortBy === "height") {
+          state.sortBy = "rank";
+          dom.sortBySelect.value = "rank";
+        }
       }
-      if (dom.title) dom.title.textContent = "Top Coasters";
+
+      // Update title based on sub-view
+      if (dom.title) {
+        dom.title.textContent =
+          state.coasterOrFlatsView === "coasters"
+            ? "Top Coasters"
+            : "Top Flats 🎠";
+      }
       const viewToggleBtn = document.getElementById("view-toggle-btn");
       if (viewToggleBtn) viewToggleBtn.style.display = "";
     } else {
@@ -338,12 +370,16 @@ function renderApp() {
 }
 
 function renderCoasterList() {
+  // Select the appropriate data source based on sub-view
+  const currentList =
+    state.coasterOrFlatsView === "coasters" ? state.coasters : state.flats;
+
   // Calculation of counts for filter
   const parkCounts = {};
   const mfgCounts = {};
   const countryCounts = {};
 
-  state.coasters.forEach((c) => {
+  currentList.forEach((c) => {
     parkCounts[c.park] = (parkCounts[c.park] || 0) + 1;
     mfgCounts[c.mfg] = (mfgCounts[c.mfg] || 0) + 1;
     const parkObj = state.parks.find((p) => p.name === c.park);
@@ -396,7 +432,7 @@ function renderCoasterList() {
   dom.views.coasters.innerHTML = "";
 
   // Create a Display List based on Sort Order
-  let displayList = [...state.coasters];
+  let displayList = [...currentList];
 
   if (state.sortBy === "height") {
     displayList.sort((a, b) => {
@@ -603,7 +639,14 @@ async function executeMassDelete() {
   );
   if (!confirmed) return;
 
-  const storeName = state.view; // coasters or parks
+  // Determine correct store name
+  let storeName;
+  if (state.view === "coasters") {
+    storeName = state.coasterOrFlatsView; // "coasters" or "flats"
+  } else {
+    storeName = "parks";
+  }
+
   const tx = db.transaction(storeName, "readwrite");
   const store = tx.objectStore(storeName);
 
@@ -622,7 +665,7 @@ async function executeMassDelete() {
 window.deleteItem = async (id, storeName) => {
   const confirmed = await showConfirm(
     "¿Seguro?",
-    "¿De verdad quieres borrar este elemento? Esta acción no se puede deshacer.",
+    "¿De verdad quieres borrar este elemento? Esta acción no se puede deshacer",
   );
   if (!confirmed) return;
 
@@ -638,8 +681,16 @@ window.deleteItem = async (id, storeName) => {
 // Global Move Item - OPTIMIZED: Only updates 2 items instead of all
 window.moveItem = async (e, index, direction) => {
   if (e) e.stopPropagation();
-  const list = state.view === "coasters" ? state.coasters : state.parks;
-  const storeName = state.view;
+
+  let list, storeName;
+  if (state.view === "coasters") {
+    list =
+      state.coasterOrFlatsView === "coasters" ? state.coasters : state.flats;
+    storeName = state.coasterOrFlatsView; // "coasters" or "flats"
+  } else {
+    list = state.parks;
+    storeName = "parks";
+  }
 
   if (direction === -1 && index === 0) return;
   if (direction === 1 && index === list.length - 1) return;
@@ -743,13 +794,80 @@ function setupEventListeners() {
     });
   }
 
+  // Coaster Nav Button - Show/Hide Dropdown
+  const coasterNavBtn = document.getElementById("coaster-nav-btn");
+  const dropdownMenu = document.getElementById("coaster-dropdown-menu");
+
+  if (coasterNavBtn && dropdownMenu) {
+    coasterNavBtn.addEventListener("click", (e) => {
+      // If we're already in coasters view, toggle dropdown
+      if (state.view === "coasters") {
+        e.stopPropagation(); // Prevent normal navigation
+        dropdownMenu.classList.toggle("hidden");
+      }
+      // If we're in parks view, let normal navigation happen (handled below)
+    });
+
+    // Dropdown item selection
+    const dropdownItems = dropdownMenu.querySelectorAll(".dropdown-item");
+    dropdownItems.forEach((item) => {
+      item.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const selectedView = item.dataset.view; // "coasters" or "flats"
+
+        state.coasterOrFlatsView = selectedView;
+
+        // Update nav button text
+        coasterNavBtn.querySelector("span").textContent =
+          selectedView === "coasters" ? "🎢 Coasters" : "🎠 Flats";
+
+        // Clear filters when switching
+        state.filterPark = "";
+        state.filterMfg = "";
+        state.filterModel = "";
+        state.filterCountry = "";
+
+        // Clear delete mode if active
+        if (state.isDeleteMode) {
+          state.isDeleteMode = false;
+          state.selectedItems.clear();
+        }
+
+        // Hide dropdown
+        dropdownMenu.classList.add("hidden");
+
+        renderApp();
+      });
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener("click", (e) => {
+      if (
+        !coasterNavBtn.contains(e.target) &&
+        !dropdownMenu.contains(e.target)
+      ) {
+        dropdownMenu.classList.add("hidden");
+      }
+    });
+  }
+
   // Nav
   dom.navItems.forEach((btn) => {
     btn.addEventListener("click", () => {
+      // Special handling for coaster button - dropdown is handled separately above
+      if (btn.id === "coaster-nav-btn" && state.view === "coasters") {
+        return; // Dropdown toggle is handled in the separate listener above
+      }
+
       // Reset delete mode on switch
       if (state.isDeleteMode) {
         state.isDeleteMode = false;
         state.selectedItems.clear();
+      }
+
+      // Close dropdown when switching tabs
+      if (dropdownMenu) {
+        dropdownMenu.classList.add("hidden");
       }
 
       dom.navItems.forEach((b) => b.classList.remove("active"));
@@ -790,7 +908,10 @@ function setupEventListeners() {
     dom.forms.model.classList.add("hidden");
 
     if (state.view === "coasters") {
-      dom.modalTitle.textContent = "Añadir Coaster";
+      const isFlat = state.coasterOrFlatsView === "flats";
+      dom.modalTitle.textContent = isFlat
+        ? "Añadir Atracción Plana"
+        : "Añadir Coaster";
       dom.forms.coaster.classList.remove("hidden");
       dom.forms.coaster.reset();
       dom.photoPreview.innerHTML = "<span>📷 Toca para añadir foto</span>";
@@ -799,6 +920,13 @@ function setupEventListeners() {
       dom.coasterBgCheck.checked = false;
       dom.coasterBgColor.value = "#000000";
       state.editingCoaster = null; // Clear edit
+
+      // Hide/show height field based on whether adding flat or coaster
+      const heightGroup = dom.inputs.height.closest(".form-group");
+      if (heightGroup) {
+        heightGroup.style.display = isFlat ? "none" : "";
+      }
+
       updateSelectOptions(); // Ensure up to date
     } else {
       dom.modalTitle.textContent = "Añadir Parque";
@@ -871,37 +999,42 @@ function setupEventListeners() {
 
     let targetRank = rankInput ? parseInt(rankInput) : null;
 
-    if (state.editingCoaster) {
-      // Edit Mode
-      const coaster = state.coasters.find((c) => c.id === state.editingCoaster);
-      if (coaster) {
-        coaster.name = name;
-        coaster.height = height;
-        coaster.park = park;
-        coaster.mfg = mfg;
-        coaster.modelo = modelo; // New
-        coaster.rideCount = rideCount;
-        coaster.country = coasterCountry;
-        if (photo) coaster.photo = photo;
-        // Update bg
-        coaster.textBgColor = textBgColor;
+    // Determine if we're working with coasters or flats
+    const storeName = state.coasterOrFlatsView; // "coasters" or "flats"
+    const currentList =
+      state.coasterOrFlatsView === "coasters" ? state.coasters : state.flats;
 
-        await handleRankUpdate("coasters", coaster, targetRank);
+    if (state.editingCoaster) {
+      // Edit Mode - find in the appropriate list
+      const item = currentList.find((c) => c.id === state.editingCoaster);
+      if (item) {
+        item.name = name;
+        item.height = height || null; // Flats won't have height
+        item.park = park;
+        item.mfg = mfg;
+        item.modelo = modelo;
+        item.rideCount = rideCount;
+        item.country = coasterCountry;
+        if (photo) item.photo = photo;
+        // Update bg
+        item.textBgColor = textBgColor;
+
+        await handleRankUpdate(storeName, item, targetRank);
       }
     } else {
       // Create Mode
-      const newCoaster = {
+      const newItem = {
         name,
-        height,
+        height: height || null, // Flats won't have height
         park,
         mfg,
-        modelo, // New
+        modelo,
         photo,
         rideCount,
         country: coasterCountry,
         textBgColor: textBgColor,
       };
-      await handleRankUpdate("coasters", newCoaster, targetRank, true);
+      await handleRankUpdate(storeName, newItem, targetRank, true);
     }
 
     await loadData();
@@ -1150,6 +1283,7 @@ function setupEventListeners() {
     exportBtn.addEventListener("click", async () => {
       const exportData = {
         coasters: state.coasters,
+        flats: state.flats, // New
         parks: state.parks,
         manufacturers: state.manufacturers,
         models: state.models, // New
@@ -1190,7 +1324,7 @@ function setupEventListeners() {
 
           const confirmed = await showConfirm(
             "¿Importar Datos?",
-            `Se importarán:\n- ${importedData.coasters?.length || 0} Coasters\n- ${importedData.parks?.length || 0} Parques\n- ${importedData.models?.length || 0} Modelos\n\nEsto fusionará/sobrescribirá datos`,
+            `Se importarán:\n- ${importedData.coasters?.length || 0} Coasters\n- ${importedData.flats?.length || 0} Flats\n- ${importedData.parks?.length || 0} Parques\n- ${importedData.models?.length || 0} Modelos\n\nEsto fusionará/sobrescribirá datos`,
             "Importar",
             "#e67e22",
           );
@@ -1221,10 +1355,15 @@ function setupEventListeners() {
               await addData("coasters", c);
             }
           }
+          if (importedData.flats) {
+            for (const f of importedData.flats) {
+              await addData("flats", f);
+            }
+          }
 
           await showConfirm(
             "¡Hecho!",
-            "¡Datos importados correctamente! 🚀",
+            "¡Datos importados correctamente!",
             "Genial",
             "#27ae60",
           );
@@ -1545,7 +1684,15 @@ function setupEventListeners() {
 }
 
 window.editCoaster = (id) => {
-  const coaster = state.coasters.find((c) => c.id === id);
+  // Try to find in both coasters and flats
+  let coaster = state.coasters.find((c) => c.id === id);
+  let isFlat = false;
+
+  if (!coaster) {
+    coaster = state.flats.find((f) => f.id === id);
+    isFlat = true;
+  }
+
   if (!coaster) return;
 
   state.editingCoaster = id;
@@ -1559,11 +1706,13 @@ window.editCoaster = (id) => {
   dom.forms.mfg.classList.add("hidden");
 
   dom.forms.coaster.classList.remove("hidden");
-  dom.modalTitle.textContent = "Editar Coaster";
+  dom.modalTitle.textContent = isFlat
+    ? "Editar Atracción Plana"
+    : "Editar Coaster";
 
   // Populate Values
   dom.inputs.name.value = coaster.name;
-  dom.inputs.height.value = coaster.height;
+  dom.inputs.height.value = coaster.height || "";
   dom.inputs.park.value = coaster.park;
   dom.inputs.mfg.value = coaster.mfg;
   if (dom.inputs.model && coaster.modelo) {
@@ -1581,6 +1730,12 @@ window.editCoaster = (id) => {
     dom.coasterBgColor.value = "#000000";
   }
   document.getElementById("input-ride-count").value = coaster.rideCount || 0;
+
+  // Hide/show height field based on whether editing flat or coaster
+  const heightGroup = dom.inputs.height.closest(".form-group");
+  if (heightGroup) {
+    heightGroup.style.display = isFlat ? "none" : "";
+  }
 
   // Handle coaster country if park is "Otro"
   const countryGroup = document.getElementById("coaster-country-group");

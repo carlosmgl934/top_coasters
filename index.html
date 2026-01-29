@@ -85,7 +85,13 @@
 
       <!-- Bottom Navigation -->
       <nav class="bottom-nav">
-        <button class="nav-item active" data-target="coaster-list">
+        <!-- Dropdown menu for Coasters/Flats -->
+        <div id="coaster-dropdown-menu" class="dropdown-menu hidden">
+          <button class="dropdown-item" data-view="coasters">🎢 Coasters</button>
+          <button class="dropdown-item" data-view="flats">🎠 Flats</button>
+        </div>
+        
+        <button class="nav-item active" id="coaster-nav-btn" data-target="coaster-list">
           <span>🎢 Coasters</span>
         </button>
         <button class="nav-item" data-target="park-list-view">

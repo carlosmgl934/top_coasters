@@ -114,7 +114,8 @@ body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.filter-bar select {
+.filter-bar select,
+.filter-bar .toggle-btn {
   background: #2c2c35;
   color: white;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -125,6 +126,22 @@ body {
   outline: none;
   flex-shrink: 0; /* Prevent collapsing on mobile */
   min-width: 100px; /* Ensure minimum visibility */
+}
+
+.filter-bar .toggle-btn {
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 600;
+  background: #3a3a48;
+}
+
+.filter-bar .toggle-btn:hover {
+  background: #4a4a58;
+  transform: scale(1.02);
+}
+
+.filter-bar .toggle-btn:active {
+  transform: scale(0.98);
 }
 
 #filter-park {
@@ -185,6 +202,62 @@ body {
 .nav-item.active {
   color: white;
   background: rgba(255, 255, 255, 0.1);
+}
+
+/* Dropdown Menu */
+.dropdown-menu {
+  position: absolute;
+  bottom: 70px; /* Just above the nav bar */
+  left: 10px;
+  background: rgba(28, 28, 33, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 10px; /* Increased from 8px */
+  display: flex;
+  flex-direction: column;
+  gap: 6px; /* Increased from 4px */
+  z-index: 100;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  animation: slideUpFade 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dropdown-menu.hidden {
+  display: none;
+}
+
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdown-item {
+  background: rgba(255, 255, 255, 0.05);
+  border: none;
+  color: white;
+  padding: 16px 24px; /* Increased from 12px 20px */
+  border-radius: 8px;
+  font-size: 16px; /* Increased from 14px */
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  width: 180px; /* Increased from 150px */
+}
+
+.dropdown-item:hover {
+  background: rgba(94, 106, 210, 0.3);
+  transform: translateX(4px);
+}
+
+.dropdown-item:active {
+  transform: scale(0.98);
 }
 
 /* Modal Helper */
@@ -730,7 +803,7 @@ body {
 /* Manufacturer List Item */
 .mfg-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* Changed from center to flex-start */
   justify-content: space-between;
   padding: 12px 16px;
   background: rgba(255, 255, 255, 0.05);
@@ -747,6 +820,15 @@ body {
   flex: 1;
   font-size: 14px;
   font-weight: 500;
+  display: flex;
+  flex-direction: column; /* Stack name and count vertically */
+  gap: 4px;
+}
+
+.mfg-item-name span {
+  color: #999;
+  font-size: 12px;
+  display: block; /* Force count to new line */
 }
 
 .mfg-item-actions {
