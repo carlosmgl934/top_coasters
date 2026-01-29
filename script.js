@@ -1939,8 +1939,17 @@ function updateSelectOptions() {
 }
 
 async function handleRankUpdate(storeName, item, targetRank, isNew = false) {
-  const list = storeName === "coasters" ? state.coasters : state.parks;
-  const keyProp = storeName === "coasters" ? "id" : "name";
+  let list;
+  let keyProp = "id";
+
+  if (storeName === "coasters") {
+    list = state.coasters;
+  } else if (storeName === "flats") {
+    list = state.flats;
+  } else {
+    list = state.parks;
+    keyProp = "name";
+  }
 
   // Ensure fresh sort
   list.sort((a, b) => (a.rank || 0) - (b.rank || 0));
