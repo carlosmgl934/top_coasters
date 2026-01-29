@@ -4,7 +4,7 @@
 
 // --- Database Configuration ---
 const DB_NAME = "CoasterTopDB";
-const DB_VERSION = 4; // Incremented for flats store
+const DB_VERSION = 5; // Incremented for separate Coaster/Flat metadata stores
 let db;
 
 // --- State ---
@@ -15,10 +15,12 @@ const state = {
   flats: [], // New: Flat rides (no height)
   parks: [],
   manufacturers: [],
-  models: [], // New: Models for coasters
+  models: [], // Coaster models
+  flatManufacturers: [], // New
+  flatModels: [], // New
   filterPark: "",
   filterMfg: "",
-  filterModel: "", // New: Model filter
+  filterModel: "",
   filterCountry: "",
   sortBy: "rank",
   isDeleteMode: false,
@@ -188,6 +190,12 @@ function initDB() {
         });
         flatStore.createIndex("rank", "rank", { unique: false });
       }
+      if (!db.objectStoreNames.contains("flatManufacturers")) {
+        db.createObjectStore("flatManufacturers", { keyPath: "name" });
+      }
+      if (!db.objectStoreNames.contains("flatModels")) {
+        db.createObjectStore("flatModels", { keyPath: "name" });
+      }
     };
 
     request.onsuccess = (e) => {
@@ -208,18 +216,32 @@ async function loadData() {
     state.parks = await getAll("parks");
   }
 
-  // Ensure "Desconocida" manufacturer exists
+  // Ensure "Desconocida" manufacturer exists (Coasters)
   state.manufacturers = await getAll("manufacturers");
   if (!state.manufacturers.find((m) => m.name === "Desconocida")) {
     await addData("manufacturers", { name: "Desconocida" });
     state.manufacturers = await getAll("manufacturers");
   }
 
-  // Ensure "Desconocido" model exists
+  // Ensure "Desconocido" model exists (Coasters)
   state.models = await getAll("models");
   if (!state.models.find((m) => m.name === "Desconocido")) {
     await addData("models", { name: "Desconocido" });
     state.models = await getAll("models");
+  }
+
+  // Ensure "Desconocida" manufacturer exists (Flats)
+  state.flatManufacturers = await getAll("flatManufacturers");
+  if (!state.flatManufacturers.find((m) => m.name === "Desconocida")) {
+    await addData("flatManufacturers", { name: "Desconocida" });
+    state.flatManufacturers = await getAll("flatManufacturers");
+  }
+
+  // Ensure "Desconocido" model exists (Flats)
+  state.flatModels = await getAll("flatModels");
+  if (!state.flatModels.find((m) => m.name === "Desconocido")) {
+    await addData("flatModels", { name: "Desconocido" });
+    state.flatModels = await getAll("flatModels");
   }
 
   // Initial sort by persistent rank (always load correct DB order)
@@ -1141,18 +1163,24 @@ function setupEventListeners() {
   dom.forms.mfg.addEventListener("submit", async (e) => {
     e.preventDefault();
     const name = dom.mfgName.value;
-    if (state.manufacturers.find((m) => m.name === name)) {
+    const isFlat = state.coasterOrFlatsView === "flats";
+    const storeName = isFlat ? "flatManufacturers" : "manufacturers";
+    const mfgs = isFlat ? state.flatManufacturers : state.manufacturers;
+
+    if (mfgs.find((m) => m.name === name)) {
       showAlert("¡Ups!", "¡Esta manufacturadora ya existe!");
       return;
     }
-    await addData("manufacturers", { name });
+    await addData(storeName, { name });
     await loadData(); // Reload to get it in select
 
     // Return to Coaster Form
     dom.forms.mfg.classList.add("hidden");
     dom.forms.coaster.classList.remove("hidden");
     dom.modal.classList.remove("center-modal"); // Return to sheet
-    dom.modalTitle.textContent = "Añadir Coaster";
+    dom.modalTitle.textContent = isFlat
+      ? "Añadir Atracción Plana"
+      : "Añadir Coaster";
     updateSelectOptions();
     dom.inputs.mfg.value = name; // Select the new one
   });
@@ -1160,18 +1188,24 @@ function setupEventListeners() {
   dom.forms.model.addEventListener("submit", async (e) => {
     e.preventDefault();
     const name = dom.modelName.value;
-    if (state.models.find((m) => m.name === name)) {
+    const isFlat = state.coasterOrFlatsView === "flats";
+    const storeName = isFlat ? "flatModels" : "models";
+    const mdls = isFlat ? state.flatModels : state.models;
+
+    if (mdls.find((m) => m.name === name)) {
       showAlert("¡Ups!", "¡Este modelo ya existe!");
       return;
     }
-    await addData("models", { name });
+    await addData(storeName, { name });
     await loadData();
 
     // Return to Coaster Form
     dom.forms.model.classList.add("hidden");
     dom.forms.coaster.classList.remove("hidden");
     dom.modal.classList.remove("center-modal"); // Return to sheet
-    dom.modalTitle.textContent = "Añadir Coaster";
+    dom.modalTitle.textContent = isFlat
+      ? "Añadir Atracción Plana"
+      : "Añadir Coaster";
     updateSelectOptions();
     dom.inputs.model.value = name;
   });
@@ -1295,10 +1329,12 @@ function setupEventListeners() {
     exportBtn.addEventListener("click", async () => {
       const exportData = {
         coasters: state.coasters,
-        flats: state.flats, // New
+        flats: state.flats,
         parks: state.parks,
         manufacturers: state.manufacturers,
-        models: state.models, // New
+        models: state.models,
+        flatManufacturers: state.flatManufacturers, // New
+        flatModels: state.flatModels, // New
         exportDate: new Date().toISOString(),
       };
 
@@ -1336,7 +1372,7 @@ function setupEventListeners() {
 
           const confirmed = await showConfirm(
             "¿Importar Datos?",
-            `Se importarán:\n- ${importedData.coasters?.length || 0} Coasters\n- ${importedData.flats?.length || 0} Flats\n- ${importedData.parks?.length || 0} Parques\n- ${importedData.models?.length || 0} Modelos\n\nEsto fusionará/sobrescribirá datos`,
+            `Se importarán:\n- ${importedData.coasters?.length || 0} Coasters\n- ${importedData.flats?.length || 0} Flats\n- ${importedData.parks?.length || 0} Parques\n- ${importedData.models?.length || 0} Modelos\n- ${importedData.flatModels?.length || 0} Modelos Flats\n\nEsto fusionará/sobrescribirá datos`,
             "Importar",
             "#e67e22",
           );
@@ -1360,6 +1396,16 @@ function setupEventListeners() {
           if (importedData.models) {
             for (const m of importedData.models) {
               await addData("models", m);
+            }
+          }
+          if (importedData.flatManufacturers) {
+            for (const m of importedData.flatManufacturers) {
+              await addData("flatManufacturers", m);
+            }
+          }
+          if (importedData.flatModels) {
+            for (const m of importedData.flatModels) {
+              await addData("flatModels", m);
             }
           }
           if (importedData.coasters) {
@@ -1404,24 +1450,27 @@ function setupEventListeners() {
     const container = document.getElementById("mfg-list-container");
     container.innerHTML = "";
 
-    if (state.manufacturers.length === 0) {
+    const isFlat = state.coasterOrFlatsView === "flats";
+    const mfgs = isFlat ? state.flatManufacturers : state.manufacturers;
+    const itemsList = isFlat ? state.flats : state.coasters;
+    const storeName = isFlat ? "flatManufacturers" : "manufacturers";
+
+    if (mfgs.length === 0) {
       container.innerHTML =
         '<p style="text-align: center; color: #999;">No hay manufacturadoras creadas</p>';
       return;
     }
 
-    state.manufacturers.forEach((mfg) => {
+    mfgs.forEach((mfg) => {
       if (mfg.name === "Desconocida") return;
 
       const item = document.createElement("div");
       item.className = "mfg-item";
 
-      const usageCount = state.coasters.filter(
-        (c) => c.mfg === mfg.name,
-      ).length;
+      const usageCount = itemsList.filter((c) => c.mfg === mfg.name).length;
 
       item.innerHTML = `
-        <div class="mfg-item-name">${mfg.name} <span style="color: #999; font-size: 12px;">(${usageCount} coasters)</span></div>
+        <div class="mfg-item-name">${mfg.name} <span style="color: #999; font-size: 12px;">(${usageCount} ${isFlat ? "flats" : "coasters"})</span></div>
         <div class="mfg-item-actions">
           <button class="mfg-item-btn" data-mfg="${mfg.name}">✏️ Editar</button>
           <button class="mfg-item-btn delete" data-mfg="${mfg.name}">🗑️ Borrar</button>
@@ -1435,29 +1484,28 @@ function setupEventListeners() {
           const newName = prompt(`Renombrar "${mfg.name}" a:`, mfg.name);
           if (!newName || newName === mfg.name) return;
 
-          if (state.manufacturers.find((m) => m.name === newName)) {
+          if (mfgs.find((m) => m.name === newName)) {
             alert("¡Ya existe una manufacturadora con ese nombre!");
             return;
           }
 
           // Update manufacturer
-          const tx = db.transaction("manufacturers", "readwrite");
-          const store = tx.objectStore("manufacturers");
+          const tx = db.transaction(storeName, "readwrite");
+          const store = tx.objectStore(storeName);
           store.delete(mfg.name);
           store.put({ name: newName });
 
-          // Update all coasters using this manufacturer
-          const coastersToUpdate = state.coasters.filter(
-            (c) => c.mfg === mfg.name,
-          );
-          if (coastersToUpdate.length > 0) {
-            const coasterTx = db.transaction("coasters", "readwrite");
-            const coasterStore = coasterTx.objectStore("coasters");
-            coastersToUpdate.forEach((c) => {
+          // Update all coasters/flats using this manufacturer
+          const itemsToUpdate = itemsList.filter((c) => c.mfg === mfg.name);
+          if (itemsToUpdate.length > 0) {
+            const itemStoreName = isFlat ? "flats" : "coasters";
+            const itemTx = db.transaction(itemStoreName, "readwrite");
+            const itemStore = itemTx.objectStore(itemStoreName);
+            itemsToUpdate.forEach((c) => {
               c.mfg = newName;
-              coasterStore.put(c);
+              itemStore.put(c);
             });
-            await new Promise((r) => (coasterTx.oncomplete = r));
+            await new Promise((r) => (itemTx.oncomplete = r));
           }
 
           await new Promise((r) => (tx.oncomplete = r));
@@ -1473,15 +1521,15 @@ function setupEventListeners() {
           if (usageCount > 0) {
             if (
               !confirm(
-                `Esta manufacturadora está siendo usada por ${usageCount} coaster(s). ¿Seguro que quieres borrarla? Las coasters quedarán sin manufacturadora`,
+                `Esta manufacturadora está siendo usada por ${usageCount} ${isFlat ? "flat(s)" : "coaster(s)"}. ¿Seguro que quieres borrarla? Las ${isFlat ? "flats" : "coasters"} quedarán sin manufacturadora`,
               )
             ) {
               return;
             }
           }
 
-          const tx = db.transaction("manufacturers", "readwrite");
-          const store = tx.objectStore("manufacturers");
+          const tx = db.transaction(storeName, "readwrite");
+          const store = tx.objectStore(storeName);
           store.delete(mfg.name);
           await new Promise((r) => (tx.oncomplete = r));
           await loadData();
@@ -1497,13 +1545,19 @@ function setupEventListeners() {
     const container = document.getElementById("model-list-container");
     container.innerHTML = "";
 
-    if (state.models.length === 0) {
+    const isFlat = state.coasterOrFlatsView === "flats";
+    const mdls = isFlat ? state.flatModels : state.models;
+    const itemsList = isFlat ? state.flats : state.coasters;
+    const storeName = isFlat ? "flatModels" : "models";
+
+    if (mdls.length === 0) {
       container.innerHTML =
         '<p style="text-align: center; color: #999;">No hay modelos creados</p>';
       return;
     }
 
-    state.models
+    mdls
+      .slice()
       .sort((a, b) => a.name.localeCompare(b.name))
       .forEach((model) => {
         if (model.name === "Desconocido") return;
@@ -1511,12 +1565,12 @@ function setupEventListeners() {
         const item = document.createElement("div");
         item.className = "mfg-item"; // Reuse same styling
 
-        const usageCount = state.coasters.filter(
+        const usageCount = itemsList.filter(
           (c) => c.modelo === model.name,
         ).length;
 
         item.innerHTML = `
-        <div class="mfg-item-name">${model.name} <span style="color: #999; font-size: 12px;">(${usageCount} coasters)</span></div>
+        <div class="mfg-item-name">${model.name} <span style="color: #999; font-size: 12px;">(${usageCount} ${isFlat ? "flats" : "coasters"})</span></div>
         <div class="mfg-item-actions">
           <button class="mfg-item-btn" data-model="${model.name}">✏️ Editar</button>
           <button class="mfg-item-btn delete" data-model="${model.name}">🗑️ Borrar</button>
@@ -1530,29 +1584,30 @@ function setupEventListeners() {
             const newName = prompt(`Renombrar "${model.name}" a:`, model.name);
             if (!newName || newName === model.name) return;
 
-            if (state.models.find((m) => m.name === newName)) {
+            if (mdls.find((m) => m.name === newName)) {
               alert("¡Ya existe un modelo con ese nombre!");
               return;
             }
 
             // Update model
-            const tx = db.transaction("models", "readwrite");
-            const store = tx.objectStore("models");
+            const tx = db.transaction(storeName, "readwrite");
+            const store = tx.objectStore(storeName);
             store.delete(model.name);
             store.put({ name: newName });
 
-            // Update all coasters using this model
-            const coastersToUpdate = state.coasters.filter(
+            // Update all coasters/flats using this model
+            const itemsToUpdate = itemsList.filter(
               (c) => c.modelo === model.name,
             );
-            if (coastersToUpdate.length > 0) {
-              const coasterTx = db.transaction("coasters", "readwrite");
-              const coasterStore = coasterTx.objectStore("coasters");
-              coastersToUpdate.forEach((c) => {
+            if (itemsToUpdate.length > 0) {
+              const itemStoreName = isFlat ? "flats" : "coasters";
+              const itemTx = db.transaction(itemStoreName, "readwrite");
+              const itemStore = itemTx.objectStore(itemStoreName);
+              itemsToUpdate.forEach((c) => {
                 c.modelo = newName;
-                coasterStore.put(c);
+                itemStore.put(c);
               });
-              await new Promise((r) => (coasterTx.oncomplete = r));
+              await new Promise((r) => (itemTx.oncomplete = r));
             }
 
             await new Promise((r) => (tx.oncomplete = r));
@@ -1568,15 +1623,15 @@ function setupEventListeners() {
             if (usageCount > 0) {
               if (
                 !confirm(
-                  `Este modelo está siendo usado por ${usageCount} coaster(s). ¿Seguro que quieres borrarlo? Las coasters quedarán sin modelo asignado.`,
+                  `Este modelo está siendo usado por ${usageCount} ${isFlat ? "flat(s)" : "coaster(s)"}. ¿Seguro que quieres borrarla? Las ${isFlat ? "flats" : "coasters"} quedarán sin modelo`,
                 )
               ) {
                 return;
               }
             }
 
-            const tx = db.transaction("models", "readwrite");
-            const store = tx.objectStore("models");
+            const tx = db.transaction(storeName, "readwrite");
+            const store = tx.objectStore(storeName);
             store.delete(model.name);
             await new Promise((r) => (tx.oncomplete = r));
             await loadData();
@@ -1616,6 +1671,13 @@ function setupEventListeners() {
   if (settingsBtn) {
     settingsBtn.addEventListener("click", () => {
       settingsModal.classList.remove("hidden");
+      const isFlat = state.coasterOrFlatsView === "flats";
+      const settingsTitle = settingsModal.querySelector("h2");
+      if (settingsTitle) {
+        settingsTitle.textContent = isFlat
+          ? "Gestionar Manufacturadoras y Modelos (Flats)"
+          : "Gestionar Manufacturadoras y Modelos (Coasters)";
+      }
       // Default to mfg tab
       dom.mfgSection.classList.remove("hidden");
       dom.modelSection.classList.add("hidden");
@@ -1696,14 +1758,10 @@ function setupEventListeners() {
 }
 
 window.editCoaster = (id) => {
-  // Try to find in both coasters and flats
-  let coaster = state.coasters.find((c) => c.id === id);
-  let isFlat = false;
-
-  if (!coaster) {
-    coaster = state.flats.find((f) => f.id === id);
-    isFlat = true;
-  }
+  // Respect current view to avoid ID collision between coasters and flats
+  const isFlat = state.coasterOrFlatsView === "flats";
+  const list = isFlat ? state.flats : state.coasters;
+  const coaster = list.find((c) => c.id === id);
 
   if (!coaster) return;
 
@@ -1718,9 +1776,7 @@ window.editCoaster = (id) => {
   dom.forms.mfg.classList.add("hidden");
 
   dom.forms.coaster.classList.remove("hidden");
-  dom.modalTitle.textContent = isFlat
-    ? "Editar Atracción Plana"
-    : "Editar Coaster";
+  dom.modalTitle.textContent = isFlat ? "Editar Flat Ride" : "Editar Coaster";
 
   // Populate Values
   dom.inputs.name.value = coaster.name;
@@ -1789,6 +1845,10 @@ function updateSelectOptions() {
   const modVal = modSelect ? modSelect.value : "";
   const cVal = cSelect ? cSelect.value : "";
 
+  const isFlat = state.coasterOrFlatsView === "flats";
+  const mfgs = isFlat ? state.flatManufacturers : state.manufacturers;
+  const mdls = isFlat ? state.flatModels : state.models;
+
   pSelect.innerHTML =
     '<option value="" disabled selected>Selecciona un Parque...</option>' +
     state.parks
@@ -1797,22 +1857,20 @@ function updateSelectOptions() {
 
   mSelect.innerHTML =
     '<option value="" disabled selected>Selecciona Manufacturadora...</option>' +
-    state.manufacturers
-      .map((m) => `<option value="${m.name}">${m.name}</option>`)
-      .join("") +
+    mfgs.map((m) => `<option value="${m.name}">${m.name}</option>`).join("") +
     '<option value="new_mfg">+ Crear Nueva...</option>';
 
   if (modSelect) {
     modSelect.innerHTML =
       '<option value="" disabled selected>Selecciona Modelo...</option>' +
-      state.models
+      mdls
+        .slice()
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((m) => `<option value="${m.name}">${m.name}</option>`)
         .join("") +
       '<option value="new_model">+ Crear Nuevo...</option>';
   }
 
-  // Update Filters
   // Update Filters
   const fPark = document.getElementById("filter-park");
   const fMfg = document.getElementById("filter-mfg");
@@ -1831,16 +1889,15 @@ function updateSelectOptions() {
   if (fMfg) {
     fMfg.innerHTML =
       '<option value="">Todas las Manufacturadoras</option>' +
-      state.manufacturers
-        .map((m) => `<option value="${m.name}">${m.name}</option>`)
-        .join("");
+      mfgs.map((m) => `<option value="${m.name}">${m.name}</option>`).join("");
     fMfg.value = state.filterMfg || "";
   }
 
   if (fModel) {
     fModel.innerHTML =
       '<option value="">Todos los Modelos</option>' +
-      state.models
+      mdls
+        .slice()
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((m) => `<option value="${m.name}">${m.name}</option>`)
         .join("");
