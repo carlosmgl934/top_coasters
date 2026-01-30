@@ -353,8 +353,13 @@ function renderApp() {
           'option[value="height"]',
         );
         if (heightOption) {
-          heightOption.style.display =
-            state.coasterOrFlatsView === "flats" ? "none" : "";
+          if (state.coasterOrFlatsView === "flats") {
+            heightOption.disabled = true;
+            heightOption.hidden = true;
+          } else {
+            heightOption.disabled = false;
+            heightOption.hidden = false;
+          }
         }
         // Reset to rank if on flats and height was selected
         if (state.coasterOrFlatsView === "flats" && state.sortBy === "height") {
@@ -552,6 +557,7 @@ function renderCoasterList() {
         state.sortBy === "rank" &&
         !state.filterPark &&
         !state.filterMfg &&
+        !state.filterModel &&
         !state.filterCountry
       ) {
         reorderControls = getReorderControls(index, currentList.length);
