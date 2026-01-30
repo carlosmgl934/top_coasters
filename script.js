@@ -421,11 +421,15 @@ function renderCoasterList() {
   // Calculation of counts for filter
   const parkCounts = {};
   const mfgCounts = {};
+  const modelCounts = {};
   const countryCounts = {};
 
   currentList.forEach((c) => {
     parkCounts[c.park] = (parkCounts[c.park] || 0) + 1;
     mfgCounts[c.mfg] = (mfgCounts[c.mfg] || 0) + 1;
+    if (c.modelo) {
+      modelCounts[c.modelo] = (modelCounts[c.modelo] || 0) + 1;
+    }
     const parkObj = state.parks.find((p) => p.name === c.park);
     if (parkObj && parkObj.country) {
       countryCounts[parkObj.country] =
@@ -433,9 +437,15 @@ function renderCoasterList() {
     }
   });
 
+  // Determine correct manufacturers and models based on view
+  const isFlat = state.coasterOrFlatsView === "flats";
+  const mfgs = isFlat ? state.flatManufacturers : state.manufacturers;
+  const mdls = isFlat ? state.flatModels : state.models;
+
   // Update Filter Selects
   const currentPark = document.getElementById("filter-park").value;
   const currentMfg = document.getElementById("filter-mfg").value;
+  const currentModel = document.getElementById("filter-model").value;
   const currentCountry = document.getElementById("filter-country").value;
 
   document.getElementById("filter-park").innerHTML =
@@ -449,13 +459,25 @@ function renderCoasterList() {
 
   document.getElementById("filter-mfg").innerHTML =
     '<option value="">Todas las Manufacturadoras</option>' +
-    state.manufacturers
+    mfgs
       .filter((m) => m.name !== "Desconocida")
       .slice()
       .sort((a, b) => (mfgCounts[b.name] || 0) - (mfgCounts[a.name] || 0))
       .map(
         (m) =>
           `<option value="${m.name}">${m.name} (${mfgCounts[m.name] || 0})</option>`,
+      )
+      .join("");
+
+  document.getElementById("filter-model").innerHTML =
+    '<option value="">Todos los Modelos</option>' +
+    mdls
+      .filter((m) => m.name !== "Desconocido")
+      .slice()
+      .sort((a, b) => (modelCounts[b.name] || 0) - (modelCounts[a.name] || 0))
+      .map(
+        (m) =>
+          `<option value="${m.name}">${m.name} (${modelCounts[m.name] || 0})</option>`,
       )
       .join("");
 
@@ -470,6 +492,7 @@ function renderCoasterList() {
 
   document.getElementById("filter-park").value = currentPark;
   document.getElementById("filter-mfg").value = currentMfg;
+  document.getElementById("filter-model").value = currentModel;
   document.getElementById("filter-country").value = currentCountry;
 
   // Render List
@@ -1258,6 +1281,10 @@ function setupEventListeners() {
   });
   document.getElementById("filter-country").addEventListener("change", (e) => {
     state.filterCountry = e.target.value;
+    renderApp();
+  });
+  document.getElementById("filter-model").addEventListener("change", (e) => {
+    state.filterModel = e.target.value;
     renderApp();
   });
 
