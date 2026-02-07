@@ -37,7 +37,7 @@
       <header class="app-header">
         <h1 id="app-title">Top Coasters</h1>
         <div style="display: flex; gap: 10px">
-          <button id="settings-btn" class="icon-btn" title="Gestionar Manufacturadoras" style="background: rgba(255, 255, 255, 0.05);">⚙️</button>
+          <button id="settings-btn" class="icon-btn" title="Gestionar Fabricantes" style="background: rgba(255, 255, 255, 0.05);">⚙️</button>
           <button id="view-toggle-btn" class="icon-btn" title="Cambiar vista">📏</button>
           <button id="data-btn" class="icon-btn" style="background: rgba(94, 106, 210, 0.2); color: #8e99f3;">💾</button>
           <button id="trash-btn" class="icon-btn">🗑️</button>
@@ -58,7 +58,7 @@
           <option value="">Todos los Países</option>
         </select>
         <select id="filter-mfg">
-          <option value="">Todas las Manufacturadoras</option>
+          <option value="">Todos los Fabricantes</option>
         </select>
         <select id="filter-model">
           <option value="">Todos los Modelos</option>
@@ -150,11 +150,11 @@
 
             <!-- 4. MANUFACTURER -->
             <div class="form-group">
-              <label>Manufacturadora</label>
+              <label>Fabricante</label>
               <div class="autocomplete-wrapper">
                 <select id="input-mfg" required>
-                  <option value="" disabled selected> Selecciona Manufacturadora... </option>
-                  <option value="new">+ Crear Nueva...</option>
+                  <option value="" disabled selected> Selecciona Fabricante... </option>
+                  <option value="new">+ Crear Nuevo...</option>
                 </select>
               </div>
             </div>
@@ -282,7 +282,7 @@
           <!-- MFG FORM (Hidden by default, for quick add) -->
           <form id="mfg-form" class="hidden">
             <div class="form-group">
-              <label>Nombre Manufacturadora</label>
+              <label>Nombre Fabricante</label>
               <input
                 type="text"
                 id="mfg-name-input"
@@ -293,7 +293,7 @@
             </div>
             <div class="form-actions">
               <button type="submit" class="btn-primary">
-                Guardar Manufacturadora
+                Guardar Fabricante
               </button>
             </div>
           </form>
@@ -377,7 +377,7 @@
             <!-- Manufacturer list will be dynamically populated -->
           </div>
           <button id="add-new-mfg-btn" class="btn-primary" style="width: 100%; background: #5e6ad2;">
-            + Añadir Nueva Manufacturadora
+            + Añadir Nuevo Fabricante
           </button>
         </div>
         

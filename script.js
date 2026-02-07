@@ -1209,7 +1209,7 @@ function setupEventListeners() {
     const mfgs = isFlat ? state.flatManufacturers : state.manufacturers;
 
     if (mfgs.find((m) => m.name === name)) {
-      showAlert("¡Ups!", "¡Esta manufacturadora ya existe!");
+      showAlert("¡Ups!", "¡Este fabricante ya existe!");
       return;
     }
     await addData(storeName, { name });
@@ -1502,7 +1502,7 @@ function setupEventListeners() {
 
     if (mfgs.length === 0) {
       container.innerHTML =
-        '<p style="text-align: center; color: #999;">No hay manufacturadoras creadas</p>';
+        '<p style="text-align: center; color: #999;">No hay fabricantes creados</p>';
       return;
     }
 
@@ -1539,7 +1539,7 @@ function setupEventListeners() {
           if (!newName || newName === mfg.name) return;
 
           if (mfgs.find((m) => m.name === newName)) {
-            alert("¡Ya existe una manufacturadora con ese nombre!");
+            alert("¡Ya existe un fabricante con ese nombre!");
             return;
           }
 
@@ -1575,7 +1575,7 @@ function setupEventListeners() {
           if (usageCount > 0) {
             if (
               !confirm(
-                `Esta manufacturadora está siendo usada por ${usageCount} ${isFlat ? "flat(s)" : "coaster(s)"}. ¿Seguro que quieres borrarla? Las ${isFlat ? "flats" : "coasters"} quedarán sin manufacturadora`,
+                `Este fabricante está siendo usado por ${usageCount} ${isFlat ? "flat(s)" : "coaster(s)"}. ¿Seguro que quieres borrarlo? Las ${isFlat ? "flats" : "coasters"} quedarán sin fabricante`,
               )
             ) {
               return;
@@ -1932,7 +1932,7 @@ function updateSelectOptions() {
   mSelect.innerHTML =
     '<option value="" disabled selected>Selecciona Fabricante...</option>' +
     mfgs.map((m) => `<option value="${m.name}">${m.name}</option>`).join("") +
-    '<option value="new_mfg">+ Crear Nueva...</option>';
+    '<option value="new_mfg">+ Crear Nuevo...</option>';
 
   if (modSelect) {
     modSelect.innerHTML =
