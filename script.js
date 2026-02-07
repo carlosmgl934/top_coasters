@@ -451,10 +451,7 @@ function renderCoasterList() {
   document.getElementById("filter-park").innerHTML =
     '<option value="">Todos los Parques</option>' +
     state.parks
-      .map(
-        (p) =>
-          `<option value="${p.name}">${p.name} (${parkCounts[p.name] || 0})</option>`,
-      )
+      .map((p) => `<option value="${p.name}">${p.name}</option>`)
       .join("");
 
   document.getElementById("filter-mfg").innerHTML =
@@ -463,10 +460,7 @@ function renderCoasterList() {
       .filter((m) => m.name !== "Desconocida")
       .slice()
       .sort((a, b) => (mfgCounts[b.name] || 0) - (mfgCounts[a.name] || 0))
-      .map(
-        (m) =>
-          `<option value="${m.name}">${m.name} (${mfgCounts[m.name] || 0})</option>`,
-      )
+      .map((m) => `<option value="${m.name}">${m.name}</option>`)
       .join("");
 
   document.getElementById("filter-model").innerHTML =
@@ -475,18 +469,14 @@ function renderCoasterList() {
       .filter((m) => m.name !== "Desconocido")
       .slice()
       .sort((a, b) => (modelCounts[b.name] || 0) - (modelCounts[a.name] || 0))
-      .map(
-        (m) =>
-          `<option value="${m.name}">${m.name} (${modelCounts[m.name] || 0})</option>`,
-      )
+      .map((m) => `<option value="${m.name}">${m.name}</option>`)
       .join("");
 
   document.getElementById("filter-country").innerHTML =
     '<option value="">Todos los Países</option>' +
     Object.keys(countryFlags)
       .map((code) => {
-        const count = countryCounts[code] || 0;
-        return `<option value="${code}">${getFlag(code)} ${code} (${count})</option>`;
+        return `<option value="${code}">${getFlag(code)} ${code}</option>`;
       })
       .join("");
 
@@ -1524,9 +1514,18 @@ function setupEventListeners() {
 
       const usageCount = itemsList.filter((c) => c.mfg === mfg.name).length;
 
+      const suffix = isFlat
+        ? usageCount === 1
+          ? "flat"
+          : "flats"
+        : usageCount === 1
+          ? "coaster"
+          : "coasters";
+
       item.innerHTML = `
-        <div class="mfg-item-name">${mfg.name} <span style="color: #999; font-size: 12px;">(${usageCount} ${isFlat ? "flats" : "coasters"})</span></div>
+        <div class="mfg-item-name">${mfg.name}</div>
         <div class="mfg-item-actions">
+          <span><strong>${usageCount}</strong> <span class="stats-label">${suffix}</span></span>
           <button class="mfg-item-btn" data-mfg="${mfg.name}">✏️ Editar</button>
           <button class="mfg-item-btn delete" data-mfg="${mfg.name}">🗑️ Borrar</button>
         </div>
@@ -1624,9 +1623,18 @@ function setupEventListeners() {
           (c) => c.modelo === model.name,
         ).length;
 
+        const suffix = isFlat
+          ? usageCount === 1
+            ? "flat"
+            : "flats"
+          : usageCount === 1
+            ? "coaster"
+            : "coasters";
+
         item.innerHTML = `
-        <div class="mfg-item-name">${model.name} <span style="color: #999; font-size: 12px;">(${usageCount} ${isFlat ? "flats" : "coasters"})</span></div>
+        <div class="mfg-item-name">${model.name}</div>
         <div class="mfg-item-actions">
+          <span><strong>${usageCount}</strong> <span class="stats-label">${suffix}</span></span>
           <button class="mfg-item-btn" data-model="${model.name}">✏️ Editar</button>
           <button class="mfg-item-btn delete" data-model="${model.name}">🗑️ Borrar</button>
         </div>
@@ -1703,8 +1711,11 @@ function setupEventListeners() {
     dom.mfgTabBtn.addEventListener("click", () => {
       dom.mfgSection.classList.remove("hidden");
       dom.modelSection.classList.add("hidden");
-      dom.mfgTabBtn.style.background = "#5e6ad2";
-      dom.mfgTabBtn.style.color = "white";
+      dom.mfgTabBtn.classList.add("active");
+      dom.modelTabBtn.classList.remove("active");
+      // Clean up inline styles if present
+      dom.mfgTabBtn.style.background = "";
+      dom.mfgTabBtn.style.color = "";
       dom.modelTabBtn.style.background = "";
       dom.modelTabBtn.style.color = "";
       renderMfgList();
@@ -1715,10 +1726,13 @@ function setupEventListeners() {
     dom.modelTabBtn.addEventListener("click", () => {
       dom.modelSection.classList.remove("hidden");
       dom.mfgSection.classList.add("hidden");
-      dom.modelTabBtn.style.background = "#5e6ad2";
-      dom.modelTabBtn.style.color = "white";
+      dom.modelTabBtn.classList.add("active");
+      dom.mfgTabBtn.classList.remove("active");
+      // Clean up inline styles if present
       dom.mfgTabBtn.style.background = "";
       dom.mfgTabBtn.style.color = "";
+      dom.modelTabBtn.style.background = "";
+      dom.modelTabBtn.style.color = "";
       renderModelList();
     });
   }
