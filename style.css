@@ -1175,7 +1175,7 @@ body {
 #mfg-tab-btn,
 #model-tab-btn {
   position: relative;
-  padding: 12px 20px !important;
+  padding: 12px 14px !important; /* Reduced padding slightly */
   border-radius: 10px !important;
   font-weight: 600 !important;
   font-size: 14px !important;
@@ -1184,6 +1184,16 @@ body {
   color: rgba(255, 255, 255, 0.5) !important;
   border: none !important;
   overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 400px) {
+  #mfg-tab-btn,
+  #model-tab-btn {
+    padding: 10px 8px !important;
+    font-size: 13px !important;
+  }
 }
 
 #mfg-tab-btn::before,

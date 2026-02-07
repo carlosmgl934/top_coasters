@@ -455,7 +455,7 @@ function renderCoasterList() {
       .join("");
 
   document.getElementById("filter-mfg").innerHTML =
-    '<option value="">Todas las Manufacturadoras</option>' +
+    '<option value="">Todos los Fabricantes</option>' +
     mfgs
       .filter((m) => m.name !== "Desconocida")
       .slice()
@@ -1024,7 +1024,7 @@ function setupEventListeners() {
       dom.forms.coaster.classList.add("hidden");
       dom.forms.mfg.classList.remove("hidden");
       dom.forms.mfg.classList.remove("hidden");
-      dom.modalTitle.textContent = "Crear Manufacturadora";
+      dom.modalTitle.textContent = "Crear Fabricante";
       dom.mfgName.value = "";
       dom.mfgName.focus();
     }
@@ -1744,8 +1744,8 @@ function setupEventListeners() {
       const settingsTitle = settingsModal.querySelector("h2");
       if (settingsTitle) {
         settingsTitle.textContent = isFlat
-          ? "Gestionar Manufacturadoras y Modelos (Flats)"
-          : "Gestionar Manufacturadoras y Modelos (Coasters)";
+          ? "Gestionar Fabricantes y Modelos (Flats)"
+          : "Gestionar Fabricantes y Modelos (Coasters)";
       }
       // Default to mfg tab
       dom.mfgSection.classList.remove("hidden");
@@ -1773,7 +1773,7 @@ function setupEventListeners() {
       dom.forms.park.classList.add("hidden");
       dom.forms.mfg.classList.remove("hidden");
       dom.forms.model.classList.add("hidden");
-      dom.modalTitle.textContent = "Crear Manufacturadora";
+      dom.modalTitle.textContent = "Crear Fabricante";
       dom.mfgName.value = "";
       dom.mfgName.focus();
     });
@@ -1800,7 +1800,7 @@ function setupEventListeners() {
       dom.modal.classList.add("center-modal"); // Center small form
       dom.forms.coaster.classList.add("hidden");
       dom.forms.mfg.classList.remove("hidden");
-      dom.modalTitle.textContent = "Crear Manufacturadora";
+      dom.modalTitle.textContent = "Crear Fabricante";
       dom.mfgName.value = "";
       dom.mfgName.focus();
     }
@@ -1930,7 +1930,7 @@ function updateSelectOptions() {
       .join("");
 
   mSelect.innerHTML =
-    '<option value="" disabled selected>Selecciona Manufacturadora...</option>' +
+    '<option value="" disabled selected>Selecciona Fabricante...</option>' +
     mfgs.map((m) => `<option value="${m.name}">${m.name}</option>`).join("") +
     '<option value="new_mfg">+ Crear Nueva...</option>';
 
@@ -1962,7 +1962,7 @@ function updateSelectOptions() {
 
   if (fMfg) {
     fMfg.innerHTML =
-      '<option value="">Todas las Manufacturadoras</option>' +
+      '<option value="">Todos los Fabricantes</option>' +
       mfgs.map((m) => `<option value="${m.name}">${m.name}</option>`).join("");
     fMfg.value = state.filterMfg || "";
   }
