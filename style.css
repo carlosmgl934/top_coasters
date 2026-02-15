@@ -207,7 +207,7 @@ body {
 /* Dropdown Menu - Professional Full-Width */
 .dropdown-menu {
   position: absolute;
-  bottom: 60px; /* Pegado justo encima de la nav bar */
+  bottom: 100%; /* Dynamic height based on nav bar */
   left: 0;
   right: 0;
   width: 100%;
@@ -779,7 +779,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 24px; /* Lower the text by reducing top margin */
+  margin-top: 45px; /* Lower the text by reducing top margin */
 }
 
 .coaster-card.mini .card-info h3 {
