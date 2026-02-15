@@ -349,22 +349,27 @@ function renderApp() {
         if (dom.filterCountry) dom.filterCountry.value = state.filterCountry;
 
         // Hide/show height sort option based on sub-view
-        const heightOption = dom.sortBySelect.querySelector(
-          'option[value="height"]',
-        );
-        if (heightOption) {
-          if (state.coasterOrFlatsView === "flats") {
-            heightOption.disabled = true;
-            heightOption.hidden = true;
-          } else {
-            heightOption.disabled = false;
-            heightOption.hidden = false;
+        if (dom.sortBySelect) {
+          const heightOption = dom.sortBySelect.querySelector(
+            'option[value="height"]',
+          );
+          if (heightOption) {
+            if (state.coasterOrFlatsView === "flats") {
+              heightOption.disabled = true;
+              heightOption.hidden = true;
+            } else {
+              heightOption.disabled = false;
+              heightOption.hidden = false;
+            }
           }
-        }
-        // Reset to rank if on flats and height was selected
-        if (state.coasterOrFlatsView === "flats" && state.sortBy === "height") {
-          state.sortBy = "rank";
-          dom.sortBySelect.value = "rank";
+          // Reset to rank if on flats and height was selected
+          if (
+            state.coasterOrFlatsView === "flats" &&
+            state.sortBy === "height"
+          ) {
+            state.sortBy = "rank";
+            dom.sortBySelect.value = "rank";
+          }
         }
       }
 
